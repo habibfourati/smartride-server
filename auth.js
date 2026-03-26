@@ -12,7 +12,9 @@ const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
 function createTransporter() {
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'ssl0.ovh.net',
+    port: 465,
+    secure: true,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
@@ -21,7 +23,7 @@ function createTransporter() {
 }
 
 async function sendVerificationEmail(email, token, name) {
-  if (!process.env.EMAIL_USER || process.env.EMAIL_USER.includes('REMPLACER')) {
+  if (!process.env.EMAIL_USER) {
     console.log(`[EMAIL SIMULÉ] Vérification pour ${email}: ${APP_URL}/api/auth/verify-email?token=${token}`);
     return;
   }
@@ -46,7 +48,7 @@ async function sendVerificationEmail(email, token, name) {
 }
 
 async function sendWelcomeEmail(email, name) {
-  if (!process.env.EMAIL_USER || process.env.EMAIL_USER.includes('REMPLACER')) return;
+  if (!process.env.EMAIL_USER) return;
   const transporter = createTransporter();
   await transporter.sendMail({
     from: `SmartRide AI <${process.env.EMAIL_USER}>`,
@@ -239,7 +241,7 @@ function setupAuthRoutes(app, db) {
     const resetToken = crypto.randomBytes(32).toString('hex');
     db.setResetToken(user.id, resetToken);
 
-    if (process.env.EMAIL_USER && !process.env.EMAIL_USER.includes('REMPLACER')) {
+    if (process.env.EMAIL_USER) {
       const transporter = createTransporter();
       await transporter.sendMail({
         from: `SmartRide AI <${process.env.EMAIL_USER}>`,
