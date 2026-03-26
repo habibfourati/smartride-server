@@ -1,0 +1,17 @@
+{
+  "name": "smartride-server",
+  "version": "1.0.0",
+  "description": "Serveur SmartRide AI - Licences, calculs premium, admin",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "bcrypt": "^5.1.1",
+    "uuid": "^9.0.0"
+  }
+}
