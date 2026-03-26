@@ -108,17 +108,11 @@ function setupAuthRoutes(app, db) {
       if (existing) return res.status(409).json({ error: 'Email déjà utilisé' });
 
       const passwordHash = await bcrypt.hash(password, 10);
-      const user = db.createAccount(email, passwordHash, name || '', null);
-      // Activer le compte immédiatement (pas de vérification email requise)
-      db.activateAccount(user.id);
+      const verifyToken = crypto.randomBytes(32).toString('hex');
+      const user = db.createAccount(email, passwordHash, name || '', verifyToken);
 
-      const token = generateToken(user.id);
-      res.json({
-        status: 'ok',
-        token,
-        message: 'Compte créé avec succès',
-        user: { id: user.id, email: user.email, name: user.name || '', plan: 'free', expires_at: null }
-      });
+      await sendVerificationEmail(email, verifyToken, name);
+      res.json({ status: 'ok', message: 'Un email de confirmation a été envoyé. Vérifiez votre boîte mail.' });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: 'Erreur serveur' });
