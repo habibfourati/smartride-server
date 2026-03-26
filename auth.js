@@ -111,8 +111,11 @@ function setupAuthRoutes(app, db) {
       const verifyToken = crypto.randomBytes(32).toString('hex');
       const user = db.createAccount(email, passwordHash, name || '', verifyToken);
 
-      await sendVerificationEmail(email, verifyToken, name);
-      res.json({ status: 'ok', message: 'Un email de confirmation a été envoyé. Vérifiez votre boîte mail.' });
+      // Activer le compte directement (sans vérification email pour l'instant)
+      db.verifyEmailToken(verifyToken);
+
+      const jwtToken = generateToken(user.id);
+      res.json({ status: 'ok', message: 'Compte créé avec succès.', token: jwtToken, userId: user.id, email: user.email, name: user.name || '', plan: 'free' });
     } catch (e) {
       console.error(e);
       res.status(500).json({ error: 'Erreur serveur' });
@@ -146,7 +149,7 @@ function setupAuthRoutes(app, db) {
 
       const user = db.getUserByEmail(email);
       if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
-      if (!user.email_verified) return res.status(403).json({ error: 'Vérifiez votre email avant de vous connecter' });
+      // Email verification temporairement désactivée
       if (user.banned) return res.status(403).json({ error: 'Compte suspendu' });
 
       const valid = await bcrypt.compare(password, user.password_hash);
