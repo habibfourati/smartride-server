@@ -2,7 +2,13 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-const db = new Database(path.join(__dirname, 'smartride.db'));
+// Sur Railway, les volumes sont montés dans /data
+// En local, utiliser le dossier courant
+const DB_PATH = process.env.RAILWAY_VOLUME_MOUNT_PATH
+  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'smartride.db')
+  : path.join(__dirname, 'smartride.db');
+
+const db = new Database(DB_PATH);
 
 // Activer WAL pour de meilleures performances
 db.pragma('journal_mode = WAL');
@@ -14,8 +20,14 @@ db.pragma('journal_mode = WAL');
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
-    device_id TEXT UNIQUE NOT NULL,
-    email TEXT,
+    device_id TEXT UNIQUE,
+    email TEXT UNIQUE,
+    password_hash TEXT,
+    email_verified INTEGER DEFAULT 0,
+    email_verify_token TEXT,
+    google_id TEXT UNIQUE,
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT,
     phone TEXT,
     name TEXT,
     plan TEXT DEFAULT 'free',
@@ -23,7 +35,9 @@ db.exec(`
     ban_reason TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     last_seen TEXT DEFAULT (datetime('now')),
-    expires_at TEXT
+    expires_at TEXT,
+    reset_token TEXT,
+    reset_token_expires TEXT
   );
 
   CREATE TABLE IF NOT EXISTS license_keys (
@@ -60,6 +74,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_rides_user ON ride_calculations(user_id);
 `);
 
+// Migrations
+try { db.exec('ALTER TABLE users ADD COLUMN last_heartbeat TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN email_verify_token TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN password_hash TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN stripe_customer_id TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN reset_token TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN reset_token_expires TEXT'); } catch (_) {}
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)'); } catch (_) {}
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_id)'); } catch (_) {}
+
 // Initialiser les paramètres par défaut
 const initSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
 initSetting.run('maintenance', 'false');
@@ -67,6 +94,7 @@ initSetting.run('maintenance_message', 'SmartRide AI est en maintenance. Veuille
 initSetting.run('min_app_version', '1.0');
 initSetting.run('latest_app_version', '1.0');
 initSetting.run('admin_password', 'smartride2024');
+initSetting.run('analysis_month_limit', '6000');
 
 // ═══════════════════════════════════════
 // FONCTIONS UTILISATEURS
@@ -205,6 +233,30 @@ function isMaintenanceMode() {
 // STATISTIQUES GLOBALES
 // ═══════════════════════════════════════
 
+function setHeartbeat(deviceId) {
+  db.prepare("UPDATE users SET last_heartbeat = datetime('now') WHERE device_id = ?").run(deviceId);
+}
+
+function setOffline(deviceId) {
+  db.prepare('UPDATE users SET last_heartbeat = NULL WHERE device_id = ?').run(deviceId);
+}
+
+function getOnlineCount() {
+  const row = db.prepare(`
+    SELECT COUNT(*) as total FROM users
+    WHERE last_heartbeat >= datetime('now', '-3 minutes')
+  `).get();
+  return row.total;
+}
+
+function getMonthlyAnalysisCount() {
+  const row = db.prepare(`
+    SELECT COUNT(*) as total FROM ride_calculations
+    WHERE calculated_at >= date('now', 'start of month')
+  `).get();
+  return row.total;
+}
+
 function getGlobalStats() {
   const users = db.prepare('SELECT COUNT(*) as total FROM users').get();
   const premium = db.prepare("SELECT COUNT(*) as total FROM users WHERE plan = 'premium' AND (expires_at IS NULL OR expires_at > datetime('now'))").get();
@@ -212,6 +264,8 @@ function getGlobalStats() {
   const rides = db.prepare('SELECT COUNT(*) as total, ROUND(AVG(score), 1) as avg_score FROM ride_calculations').get();
   const activeToday = db.prepare("SELECT COUNT(*) as total FROM users WHERE last_seen > datetime('now', '-1 day')").get();
   const activeWeek = db.prepare("SELECT COUNT(*) as total FROM users WHERE last_seen > datetime('now', '-7 day')").get();
+  const monthlyAnalyses = getMonthlyAnalysisCount();
+  const analysisMonthLimit = parseInt(getSetting('analysis_month_limit') || '6000');
 
   return {
     totalUsers: users.total,
@@ -220,8 +274,78 @@ function getGlobalStats() {
     totalRides: rides.total,
     avgScore: rides.avg_score,
     activeToday: activeToday.total,
-    activeWeek: activeWeek.total
+    activeWeek: activeWeek.total,
+    monthlyAnalyses,
+    analysisMonthLimit,
+    onlineNow: getOnlineCount()
   };
+}
+
+// ═══════════════════════════════════════
+// FONCTIONS COMPTES (email/google)
+// ═══════════════════════════════════════
+
+function getUserByEmail(email) {
+  return db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+}
+
+function createAccount(email, passwordHash, name, verifyToken) {
+  const id = uuidv4();
+  db.prepare(`INSERT INTO users (id, email, password_hash, name, email_verify_token, email_verified)
+    VALUES (?, ?, ?, ?, ?, 0)`).run(id, email, passwordHash, name || '', verifyToken);
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+}
+
+function activateAccount(userId) {
+  db.prepare('UPDATE users SET email_verified = 1, email_verify_token = NULL WHERE id = ?').run(userId);
+}
+
+function verifyEmailToken(token) {
+  const user = db.prepare('SELECT * FROM users WHERE email_verify_token = ?').get(token);
+  if (!user) return null;
+  db.prepare('UPDATE users SET email_verified = 1, email_verify_token = NULL WHERE id = ?').run(user.id);
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+}
+
+function createGoogleAccount(email, name, googleId) {
+  const id = uuidv4();
+  db.prepare(`INSERT INTO users (id, email, name, google_id, email_verified)
+    VALUES (?, ?, ?, ?, 1)`).run(id, email, name || '', googleId);
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+}
+
+function linkGoogleId(userId, googleId) {
+  db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(googleId, userId);
+}
+
+function setResetToken(userId, token) {
+  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 heure
+  db.prepare('UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?').run(token, expires, userId);
+}
+
+function getUserByResetToken(token) {
+  return db.prepare(`SELECT * FROM users WHERE reset_token = ? AND reset_token_expires > datetime('now')`).get(token);
+}
+
+function resetPassword(userId, passwordHash) {
+  db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?').run(passwordHash, userId);
+}
+
+function updateLastSeen(userId) {
+  db.prepare("UPDATE users SET last_seen = datetime('now') WHERE id = ?").run(userId);
+}
+
+function setStripeCustomer(userId, customerId) {
+  db.prepare('UPDATE users SET stripe_customer_id = ? WHERE id = ?').run(customerId, userId);
+}
+
+function setStripeSubscription(userId, subscriptionId, plan, expiresAt) {
+  db.prepare('UPDATE users SET stripe_subscription_id = ?, plan = ?, expires_at = ? WHERE id = ?')
+    .run(subscriptionId, plan, expiresAt, userId);
+}
+
+function getUserByStripeCustomer(customerId) {
+  return db.prepare('SELECT * FROM users WHERE stripe_customer_id = ?').get(customerId);
 }
 
 module.exports = {
@@ -230,5 +354,12 @@ module.exports = {
   generateLicenseKey, redeemLicenseKey, getAllLicenseKeys,
   saveRideCalculation, getUserRideStats,
   getSetting, setSetting, isMaintenanceMode,
-  getGlobalStats
+  getGlobalStats, getMonthlyAnalysisCount,
+  setHeartbeat, setOffline, getOnlineCount,
+  // Comptes
+  getUserByEmail, createAccount, activateAccount, verifyEmailToken,
+  createGoogleAccount, linkGoogleId,
+  setResetToken, getUserByResetToken, resetPassword,
+  updateLastSeen, setStripeCustomer, setStripeSubscription,
+  getUserByStripeCustomer
 };

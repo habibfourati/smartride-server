@@ -1,14 +1,25 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const db = require('./database');
+const { setupAuthRoutes, requireAuth, verifyToken } = require('./auth');
+const { setupPaymentRoutes } = require('./payments');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+
+// Le webhook Stripe a besoin du body brut — AVANT express.json()
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Monter les routes auth et paiement
+setupAuthRoutes(app, db);
+setupPaymentRoutes(app, db, requireAuth);
 
 // ═══════════════════════════════════════════════════════
 // MIDDLEWARE - Vérifier maintenance
@@ -89,7 +100,8 @@ app.post('/api/verify', checkMaintenance, (req, res) => {
     status: 'ok',
     plan: plan,
     expires_at: user.expires_at,
-    min_version: db.getSetting('min_app_version')
+    min_version: db.getSetting('min_app_version'),
+    analysis_month_limit: parseInt(db.getSetting('analysis_month_limit') || '6000')
   });
 });
 
@@ -102,14 +114,26 @@ app.post('/api/redeem', checkMaintenance, (req, res) => {
   res.json(result);
 });
 
-// Calcul de score (PREMIUM SEULEMENT)
+// Calcul de score — accepte JWT Bearer OU device_id
 app.post('/api/calculate', checkMaintenance, (req, res) => {
-  const { device_id, prix, distance_km, duree_min, approche_min, approche_km, zone_distance_km } = req.body;
+  const { prix, distance_km, duree_min, approche_min, approche_km, zone_distance_km } = req.body;
 
-  if (!device_id) return res.status(400).json({ error: 'device_id requis' });
+  // Essayer JWT d'abord
+  let user = null;
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const decoded = verifyToken(authHeader.substring(7));
+    if (decoded) user = db.getUserById(decoded.userId);
+  }
 
-  const user = db.getUser(device_id);
-  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+  // Fallback device_id
+  if (!user) {
+    const { device_id } = req.body;
+    if (!device_id) return res.status(400).json({ error: 'Authentification requise' });
+    user = db.getUser(device_id);
+    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+  }
+
   if (user.banned) return res.status(403).json({ error: 'Compte suspendu' });
 
   // Vérifier premium
@@ -120,6 +144,13 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
   }
   if (plan !== 'premium') {
     return res.status(403).json({ error: 'Fonctionnalité premium requise', plan: 'free' });
+  }
+
+  // Vérifier limite globale mensuelle
+  const monthlyCount = db.getMonthlyAnalysisCount();
+  const monthlyLimit = parseInt(db.getSetting('analysis_month_limit') || '6000');
+  if (monthlyCount >= monthlyLimit) {
+    return res.status(429).json({ error: 'Limite mensuelle d\'analyses atteinte', status: 'limit_reached' });
   }
 
   // ═══════ CALCUL DU SCORE (côté serveur) ═══════
@@ -169,6 +200,25 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
     profit: Math.round(profit * 100) / 100,
     evaluation: evaluation
   });
+});
+
+// Heartbeat — chauffeur en ligne
+app.post('/api/heartbeat', (req, res) => {
+  const { device_id } = req.body;
+  if (!device_id) return res.status(400).json({ error: 'device_id requis' });
+  if (db.isMaintenanceMode()) {
+    return res.json({ status: 'maintenance', message: db.getSetting('maintenance_message') });
+  }
+  db.setHeartbeat(device_id);
+  res.json({ status: 'ok' });
+});
+
+// Chauffeur hors ligne
+app.post('/api/offline', (req, res) => {
+  const { device_id } = req.body;
+  if (!device_id) return res.status(400).json({ error: 'device_id requis' });
+  db.setOffline(device_id);
+  res.json({ status: 'ok' });
 });
 
 // Status de l'app (maintenance, version min)
@@ -248,6 +298,26 @@ app.post('/admin/api/licenses/generate', adminAuth, (req, res) => {
 // Lister les clés
 app.get('/admin/api/licenses', adminAuth, (req, res) => {
   res.json(db.getAllLicenseKeys());
+});
+
+// Compteur en ligne (léger, pour auto-refresh)
+app.get('/admin/api/online', adminAuth, (req, res) => {
+  res.json({ onlineNow: db.getOnlineCount() });
+});
+
+// Limite globale analyses/mois
+app.get('/admin/api/analysis-limit', adminAuth, (req, res) => {
+  res.json({
+    limit: parseInt(db.getSetting('analysis_month_limit') || '6000'),
+    current: db.getMonthlyAnalysisCount()
+  });
+});
+
+app.post('/admin/api/analysis-limit', adminAuth, (req, res) => {
+  const { limit } = req.body;
+  if (!limit || isNaN(limit) || limit < 1) return res.status(400).json({ error: 'Limite invalide' });
+  db.setSetting('analysis_month_limit', String(limit));
+  res.json({ status: 'ok', limit });
 });
 
 // Paramètres maintenance

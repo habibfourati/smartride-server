@@ -103,6 +103,11 @@
     .refresh-btn { background: none; border: 1px solid #263238; color: #78909c; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
     .refresh-btn:hover { border-color: #4CAF50; color: #4CAF50; }
 
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
     @media (max-width: 768px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .setting-row { flex-direction: column; align-items: flex-start; }
@@ -237,6 +242,16 @@
       </div>
 
       <div class="setting-group">
+        <h3>Limite globale d'analyses</h3>
+        <div class="setting-row">
+          <label>Analyses max ce mois (tous users)</label>
+          <input type="number" id="analysisLimit" min="1" placeholder="ex: 6000">
+        </div>
+        <div id="analysisLimitInfo" style="color:#546e7a;font-size:13px;margin-bottom:12px"></div>
+        <button class="btn btn-green" onclick="saveAnalysisLimit()">Sauvegarder</button>
+      </div>
+
+      <div class="setting-group">
         <h3>Changer le mot de passe admin</h3>
         <div class="setting-row">
           <label>Nouveau mot de passe</label>
@@ -267,6 +282,7 @@
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         loadOverview();
+        startAutoRefresh();
       } else {
         document.getElementById('loginError').style.display = 'block';
       }
@@ -274,6 +290,7 @@
   }
 
   function logout() {
+    stopAutoRefresh();
     adminPassword = '';
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('dashboard').style.display = 'none';
@@ -283,6 +300,25 @@
 
   function authHeaders() {
     return { 'Content-Type': 'application/json', 'X-Admin-Password': adminPassword };
+  }
+
+  // ═══════ AUTO-REFRESH ═══════
+  let autoRefreshInterval = null;
+
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    autoRefreshInterval = setInterval(async () => {
+      try {
+        const res = await fetch(API + '/admin/api/online', { headers: authHeaders() });
+        const data = await res.json();
+        const el = document.getElementById('onlineNowCount');
+        if (el) el.textContent = data.onlineNow;
+      } catch(_) {}
+    }, 5000); // toutes les 5 secondes
+  }
+
+  function stopAutoRefresh() {
+    if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
   }
 
   // ═══════ NAVIGATION ═══════
@@ -302,6 +338,8 @@
   async function loadOverview() {
     const res = await fetch(API + '/admin/api/stats', { headers: authHeaders() });
     const stats = await res.json();
+    const analysisPct = stats.analysisMonthLimit > 0 ? Math.round(stats.monthlyAnalyses * 100 / stats.analysisMonthLimit) : 0;
+    const analysisColor = analysisPct >= 90 ? 'red' : analysisPct >= 70 ? 'orange' : 'green';
     document.getElementById('statsGrid').innerHTML = `
       <div class="stat-card blue"><div class="number">${stats.totalUsers}</div><div class="label">Utilisateurs total</div></div>
       <div class="stat-card green"><div class="number">${stats.premiumUsers}</div><div class="label">Premium actifs</div></div>
@@ -309,6 +347,17 @@
       <div class="stat-card orange"><div class="number">${stats.activeToday}</div><div class="label">Actifs aujourd'hui</div></div>
       <div class="stat-card blue"><div class="number">${stats.activeWeek}</div><div class="label">Actifs cette semaine</div></div>
       <div class="stat-card green"><div class="number">${stats.totalRides}</div><div class="label">Calculs effectués</div></div>
+      <div class="stat-card green">
+        <div class="number" style="display:flex;align-items:center;justify-content:center;gap:8px">
+          <span style="width:12px;height:12px;background:#4CAF50;border-radius:50%;display:inline-block;animation:pulse 1.5s infinite"></span>
+          <span id="onlineNowCount">${stats.onlineNow}</span>
+        </div>
+        <div class="label">En ligne maintenant</div>
+      </div>
+      <div class="stat-card ${analysisColor}" style="grid-column: span 2">
+        <div class="number">${stats.monthlyAnalyses} <span style="font-size:18px;color:#546e7a">/ ${stats.analysisMonthLimit}</span></div>
+        <div class="label">Analyses ce mois (${analysisPct}% de la limite)</div>
+      </div>
     `;
   }
 
@@ -419,6 +468,27 @@
     document.getElementById('maintenanceMsg').value = data.maintenance_message;
     document.getElementById('minVersion').value = data.min_version;
     document.getElementById('latestVersion').value = data.latest_version;
+
+    // Limite analyses
+    const limRes = await fetch(API + '/admin/api/analysis-limit', { headers: authHeaders() });
+    const limData = await limRes.json();
+    document.getElementById('analysisLimit').value = limData.limit;
+    document.getElementById('analysisLimitInfo').textContent =
+      `Actuellement : ${limData.current} analyses effectuées ce mois sur ${limData.limit}`;
+  }
+
+  async function saveAnalysisLimit() {
+    const limit = parseInt(document.getElementById('analysisLimit').value);
+    if (!limit || limit < 1) { alert('Valeur invalide'); return; }
+    const res = await fetch(API + '/admin/api/analysis-limit', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ limit })
+    });
+    if (res.ok) {
+      document.getElementById('analysisLimitInfo').textContent =
+        `Limite mise à jour : ${limit} analyses/mois`;
+      alert('Limite sauvegardée !');
+    }
   }
 
   async function toggleMaintenance() {
