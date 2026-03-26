@@ -39,8 +39,8 @@ function setupPaymentRoutes(app, db, requireAuth) {
         mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [{ price: finalPriceId, quantity: 1 }],
-        success_url: `${APP_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${APP_URL}/payment-cancel`,
+        success_url: `${APP_URL}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${APP_URL}/payment-cancel.html`,
         metadata: { userId: user.id }
       });
 
