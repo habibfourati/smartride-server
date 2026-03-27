@@ -67,6 +67,13 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
+  CREATE TABLE IF NOT EXISTS broadcasts (
+    id TEXT PRIMARY KEY,
+    title TEXT DEFAULT '',
+    message TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT
@@ -317,6 +324,36 @@ function getUnreadMessageCount() {
   return db.prepare("SELECT COUNT(*) as total FROM messages WHERE status = 'NEW'").get().total;
 }
 
+// Messages d'un utilisateur (avec réponses admin)
+function getUserMessages(userId) {
+  return db.prepare('SELECT * FROM messages WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+}
+
+// ═══════════════════════════════════════
+// BROADCASTS (messages admin → tous)
+// ═══════════════════════════════════════
+
+function createBroadcast(title, message) {
+  const id = uuidv4();
+  db.prepare('INSERT INTO broadcasts (id, title, message) VALUES (?, ?, ?)').run(id, title, message);
+  return db.prepare('SELECT * FROM broadcasts WHERE id = ?').get(id);
+}
+
+function getAllBroadcasts() {
+  return db.prepare('SELECT * FROM broadcasts ORDER BY created_at DESC').all();
+}
+
+function getRecentBroadcasts(since) {
+  if (since) {
+    return db.prepare('SELECT * FROM broadcasts WHERE created_at > ? ORDER BY created_at DESC').all(since);
+  }
+  return db.prepare('SELECT * FROM broadcasts ORDER BY created_at DESC LIMIT 10').all();
+}
+
+function deleteBroadcast(id) {
+  db.prepare('DELETE FROM broadcasts WHERE id = ?').run(id);
+}
+
 // ═══════════════════════════════════════
 // COURSES
 // ═══════════════════════════════════════
@@ -420,7 +457,8 @@ module.exports = {
   isUserPremium, getEffectivePlan, checkAccess,
   setStripeCustomer, setStripeSubscription, getUserByStripeCustomer,
   setResetToken, getUserByResetToken, resetPassword, updateLastSeen,
-  createMessage, getAllMessages, getMessageById, markMessageRead, replyMessage, deleteMessage, getUnreadMessageCount,
+  createMessage, getAllMessages, getMessageById, markMessageRead, replyMessage, deleteMessage, getUnreadMessageCount, getUserMessages,
+  createBroadcast, getAllBroadcasts, getRecentBroadcasts, deleteBroadcast,
   saveRideCalculation, getUserRideStats,
   getSetting, setSetting, isMaintenanceMode,
   setHeartbeat, setHeartbeatByDevice, setOffline, setOfflineByDevice, getOnlineCount,

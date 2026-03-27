@@ -272,6 +272,8 @@ function setupAuthRoutes(app, db) {
       plan: db.getEffectivePlan(user),
       expires_at: user.expires_at || '',
       access,
+      free_access: db.getSetting('free_access') === 'true',
+      payment_enabled: db.getSetting('payment_enabled') === 'true',
       analysis_month_limit: parseInt(db.getSetting('analysis_month_limit') || '6000')
     });
   });
@@ -341,6 +343,19 @@ function setupAuthRoutes(app, db) {
 
     db.createMessage(user.id, user.email, subject || '', message.trim());
     res.json({ status: 'ok', message: 'Message envoyé' });
+  });
+
+  // ── MES MESSAGES (avec réponses admin) ──
+  app.get('/api/messages', requireAuth, (req, res) => {
+    const msgs = db.getUserMessages(req.userId);
+    res.json(msgs);
+  });
+
+  // ── BROADCASTS (messages admin pour tous) ──
+  app.get('/api/broadcasts', requireAuth, (req, res) => {
+    const since = req.query.since || null;
+    const broadcasts = db.getRecentBroadcasts(since);
+    res.json(broadcasts);
   });
 }
 

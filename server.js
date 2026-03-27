@@ -80,9 +80,10 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
   if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
   if (user.banned) return res.status(403).json({ error: 'Compte suspendu' });
 
-  // Vérifier premium avec fonction centralisée
-  if (!db.isUserPremium(user)) {
-    return res.status(403).json({ error: 'Fonctionnalité premium requise', plan: 'free' });
+  // Vérifier accès : premium OU free_access activé
+  const freeAccess = db.getSetting('free_access') === 'true';
+  if (!db.isUserPremium(user) && !freeAccess) {
+    return res.status(403).json({ error: 'Fonctionnalité premium requise', plan: 'free', showPaywall: db.getSetting('payment_enabled') === 'true' });
   }
 
   // Vérifier limite globale mensuelle
@@ -314,6 +315,23 @@ app.post('/admin/api/messages/:id/reply', adminAuth, (req, res) => {
 
 app.delete('/admin/api/messages/:id', adminAuth, (req, res) => {
   db.deleteMessage(req.params.id);
+  res.json({ status: 'ok' });
+});
+
+// ── BROADCASTS (message à tous) ──
+app.get('/admin/api/broadcasts', adminAuth, (req, res) => {
+  res.json(db.getAllBroadcasts());
+});
+
+app.post('/admin/api/broadcasts', adminAuth, (req, res) => {
+  const { title, message } = req.body;
+  if (!message || message.trim().length < 3) return res.status(400).json({ error: 'Message requis' });
+  db.createBroadcast(title || '', message.trim());
+  res.json({ status: 'ok' });
+});
+
+app.delete('/admin/api/broadcasts/:id', adminAuth, (req, res) => {
+  db.deleteBroadcast(req.params.id);
   res.json({ status: 'ok' });
 });
 

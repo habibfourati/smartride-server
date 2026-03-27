@@ -164,8 +164,18 @@
 
     <!-- TAB: MESSAGES -->
     <div class="tab-content" id="tab-messages">
-      <h2 class="section-title">Messages</h2>
+      <h2 class="section-title">Messages utilisateurs</h2>
       <div id="messagesList"></div>
+
+      <h2 class="section-title" style="margin-top:32px">Envoyer un message à tous</h2>
+      <div style="background:#1a2634;border-radius:12px;padding:20px">
+        <input type="text" id="broadcastTitle" placeholder="Titre (optionnel)" style="width:100%;padding:10px;background:#0f1923;border:1px solid #263238;border-radius:6px;color:#fff;margin-bottom:8px;font-size:14px">
+        <textarea id="broadcastMsg" placeholder="Message pour tous les utilisateurs..." style="width:100%;padding:10px;background:#0f1923;border:1px solid #263238;border-radius:6px;color:#fff;min-height:80px;resize:vertical;font-size:14px;margin-bottom:8px"></textarea>
+        <button class="btn btn-green" onclick="sendBroadcast()">Envoyer à tous</button>
+      </div>
+
+      <h2 class="section-title" style="margin-top:24px">Messages envoyés</h2>
+      <div id="broadcastsList"></div>
     </div>
 
     <!-- TAB: ACCÈS -->
@@ -279,7 +289,7 @@ function showTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   event.target.classList.add('active');
   if (name === 'users') loadUsers();
-  if (name === 'messages') loadMessages();
+  if (name === 'messages') { loadMessages(); loadBroadcasts(); }
   if (name === 'access') loadFlags();
   if (name === 'settings') loadSettings();
 }
@@ -445,6 +455,42 @@ async function saveAnalysisLimit() {
     body: JSON.stringify({ limit: parseInt(document.getElementById('analysisLimit').value) })
   });
   loadAll();
+}
+
+// ── BROADCASTS ──
+async function sendBroadcast() {
+  const title = document.getElementById('broadcastTitle').value;
+  const msg = document.getElementById('broadcastMsg').value;
+  if (!msg || msg.length < 3) { alert('Message trop court'); return; }
+  await api('/admin/api/broadcasts', { method: 'POST', body: JSON.stringify({ title, message: msg }) });
+  document.getElementById('broadcastTitle').value = '';
+  document.getElementById('broadcastMsg').value = '';
+  loadBroadcasts();
+  alert('Message envoyé à tous les utilisateurs');
+}
+
+async function loadBroadcasts() {
+  const res = await api('/admin/api/broadcasts');
+  const msgs = await res.json();
+  const div = document.getElementById('broadcastsList');
+  if (msgs.length === 0) { div.innerHTML = '<p style="color:#546e7a">Aucun message envoyé</p>'; return; }
+  div.innerHTML = msgs.map(m => `
+    <div class="msg-card replied" style="border-left-color:#FFA726">
+      <div class="msg-header">
+        <span class="msg-from">→ Tous les utilisateurs</span>
+        <span class="msg-date">${m.created_at ? new Date(m.created_at).toLocaleString('fr-FR') : ''}</span>
+      </div>
+      ${m.title ? `<div class="msg-subject">${m.title}</div>` : ''}
+      <div class="msg-body">${m.message}</div>
+      <button class="btn btn-red" onclick="deleteBroadcast('${m.id}')" style="margin-top:6px">Supprimer</button>
+    </div>
+  `).join('');
+}
+
+async function deleteBroadcast(id) {
+  if (!confirm('Supprimer ce broadcast ?')) return;
+  await api(`/admin/api/broadcasts/${id}`, { method: 'DELETE' });
+  loadBroadcasts();
 }
 
 async function changeAdminPwd() {
