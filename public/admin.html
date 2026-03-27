@@ -119,6 +119,7 @@
     <div class="nav-btn" onclick="showTab('users')">Utilisateurs</div>
     <div class="nav-btn" onclick="showTab('messages')">Messages <span class="badge" id="msgBadge" style="display:none">0</span></div>
     <div class="nav-btn" onclick="showTab('access')">Accès</div>
+    <div class="nav-btn" onclick="showTab('rides')">Courses</div>
     <div class="nav-btn" onclick="showTab('analytics')">Analytics</div>
     <div class="nav-btn" onclick="showTab('killswitch')">Kill Switch</div>
     <div class="nav-btn" onclick="showTab('settings')">Paramètres</div>
@@ -209,6 +210,22 @@
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- TAB: COURSES -->
+    <div class="tab-content" id="tab-rides" style="display:none">
+      <h2 class="section-title">Historique des courses</h2>
+      <div style="margin-bottom:16px">
+        <select id="ridesFilter" onchange="loadRides()" style="padding:8px 12px;background:#1a2634;border:1px solid #263238;border-radius:8px;color:#fff;font-size:14px">
+          <option value="all">Tous les utilisateurs</option>
+        </select>
+        <select id="ridesLimit" onchange="loadRides()" style="padding:8px 12px;background:#1a2634;border:1px solid #263238;border-radius:8px;color:#fff;font-size:14px;margin-left:8px">
+          <option value="50">50 dernières</option>
+          <option value="100" selected>100 dernières</option>
+          <option value="500">500 dernières</option>
+        </select>
+      </div>
+      <div id="ridesTable"></div>
     </div>
 
     <!-- TAB: ANALYTICS -->
@@ -350,6 +367,7 @@ function showTab(name) {
   if (name === 'users') loadUsers();
   if (name === 'messages') { loadMessages(); loadBroadcasts(); }
   if (name === 'access') loadFlags();
+  if (name === 'rides') loadRides();
   if (name === 'analytics') loadAnalytics();
   if (name === 'killswitch') loadKillSwitch();
   if (name === 'settings') loadSettings();
@@ -440,12 +458,14 @@ async function deleteUser(id) { if(!confirm('Supprimer cet utilisateur ?')) retu
 // ── DÉTAIL UTILISATEUR ──
 async function showUserDetail(id) {
   try {
-    const [statsRes, analyticsRes] = await Promise.all([
+    const [statsRes, analyticsRes, ridesRes] = await Promise.all([
       api(`/admin/api/users/${id}/stats`),
-      api(`/admin/api/users/${id}/analytics`)
+      api(`/admin/api/users/${id}/analytics`),
+      api(`/admin/api/users/${id}/rides?limit=20`)
     ]);
     const stats = await statsRes.json();
     const analytics = await analyticsRes.json();
+    const userRides = await ridesRes.json();
     const u = stats.user;
     const r = stats.rideStats;
     const t = analytics.totals;
@@ -492,6 +512,26 @@ async function showUserDetail(id) {
         <div class="stat-card"><div class="number">${t?.total_opens || 0}</div><div class="label">Ouvertures app</div></div>
         <div class="stat-card"><div class="number">${t?.total_results_viewed || 0}</div><div class="label">Résultats vus</div></div>
       </div>
+
+      ${userRides && userRides.length > 0 ? `
+        <h3 style="color:#fff;margin-bottom:12px">Dernières courses</h3>
+        <table class="table">
+          <thead><tr><th>Date</th><th>Départ</th><th>Arrivée</th><th>Prix</th><th>Dist.</th><th>Durée</th><th>Score</th></tr></thead>
+          <tbody>${userRides.map(r => {
+            const d = r.calculated_at ? new Date(r.calculated_at + 'Z').toLocaleString('fr-FR') : '-';
+            const sc = r.score >= 25 ? '#4CAF50' : r.score >= 15 ? '#FFA726' : '#ef5350';
+            return `<tr>
+              <td style="font-size:11px">${d}</td>
+              <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.depart||''}">${r.depart||'-'}</td>
+              <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.arrivee||''}">${r.arrivee||'-'}</td>
+              <td><strong>${(r.prix||0).toFixed(2)}€</strong></td>
+              <td>${(r.distance_km||0).toFixed(1)}km</td>
+              <td>${Math.round(r.duree_min||0)}min</td>
+              <td style="color:${sc};font-weight:bold">${(r.score||0).toFixed(1)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      ` : '<p style="color:#546e7a">Aucune course</p>'}
 
       ${analytics.usage && analytics.usage.length > 0 ? `
         <h3 style="color:#fff;margin-bottom:12px">Activité récente</h3>
@@ -634,6 +674,56 @@ async function deleteBroadcast(id) {
   if (!confirm('Supprimer ce broadcast ?')) return;
   await api(`/admin/api/broadcasts/${id}`, { method: 'DELETE' });
   loadBroadcasts();
+}
+
+// ── COURSES ──
+async function loadRides() {
+  const filter = document.getElementById('ridesFilter').value;
+  const limit = document.getElementById('ridesLimit').value;
+
+  // Populate user filter
+  const select = document.getElementById('ridesFilter');
+  if (select.options.length <= 1) {
+    const users = await api('/admin/api/users');
+    users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.name || u.email;
+      select.appendChild(opt);
+    });
+  }
+
+  let url = filter === 'all' ? `/admin/api/rides?limit=${limit}` : `/admin/api/users/${filter}/rides?limit=${limit}`;
+  const rides = await api(url);
+
+  if (!rides || rides.length === 0) {
+    document.getElementById('ridesTable').innerHTML = '<p style="color:#546e7a">Aucune course enregistrée</p>';
+    return;
+  }
+
+  let html = `<table class="table"><tr>
+    <th>Date</th><th>Utilisateur</th><th>Départ</th><th>Arrivée</th>
+    <th>Prix</th><th>Distance</th><th>Durée</th><th>Score</th><th>€/h brut</th>
+  </tr>`;
+
+  rides.forEach(r => {
+    const date = r.calculated_at ? new Date(r.calculated_at + 'Z').toLocaleString('fr-FR') : '-';
+    const scoreColor = r.score >= 25 ? '#4CAF50' : r.score >= 15 ? '#FFA726' : '#ef5350';
+    html += `<tr>
+      <td style="font-size:12px">${date}</td>
+      <td>${r.name || r.email || '-'}</td>
+      <td style="font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.depart || ''}">${r.depart || '-'}</td>
+      <td style="font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.arrivee || ''}">${r.arrivee || '-'}</td>
+      <td><strong>${(r.prix || 0).toFixed(2)}€</strong></td>
+      <td>${(r.distance_km || 0).toFixed(1)} km</td>
+      <td>${Math.round(r.duree_min || 0)} min</td>
+      <td style="color:${scoreColor};font-weight:bold">${(r.score || 0).toFixed(1)}</td>
+      <td>${(r.brut_h || 0).toFixed(1)}€/h</td>
+    </tr>`;
+  });
+
+  html += '</table>';
+  document.getElementById('ridesTable').innerHTML = html;
 }
 
 // ── ANALYTICS ──

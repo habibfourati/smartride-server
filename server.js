@@ -66,7 +66,7 @@ app.get('/api/debug-db', (req, res) => {
 
 // Calcul de score — JWT obligatoire
 app.post('/api/calculate', checkMaintenance, (req, res) => {
-  const { prix, distance_km, duree_min, approche_min, approche_km, zone_distance_km } = req.body;
+  const { prix, distance_km, duree_min, approche_min, approche_km, zone_distance_km, depart, arrivee } = req.body;
 
   // Authentification JWT obligatoire
   const authHeader = req.headers['authorization'];
@@ -126,7 +126,8 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
   // Sauvegarder le calcul + analytics
   db.saveRideCalculation(user.id, {
     prix, distanceKm: distance_km, dureeMin: duree_min,
-    approcheMin: approche_min, score, brutH, rentabiliteH
+    approcheMin: approche_min, score, brutH, rentabiliteH,
+    depart: depart || '', arrivee: arrivee || ''
   });
   db.incrementDailyUsage(user.id, 'analyses_done');
 
@@ -382,6 +383,17 @@ app.post('/admin/api/broadcasts', adminAuth, (req, res) => {
 app.delete('/admin/api/broadcasts/:id', adminAuth, (req, res) => {
   db.deleteBroadcast(req.params.id);
   res.json({ status: 'ok' });
+});
+
+// ── COURSES ADMIN ──
+app.get('/admin/api/rides', adminAuth, (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  res.json(db.getAllRides(limit));
+});
+
+app.get('/admin/api/users/:id/rides', adminAuth, (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  res.json(db.getUserRides(req.params.id, limit));
 });
 
 // ── ANALYTICS ADMIN ──

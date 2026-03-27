@@ -50,6 +50,8 @@ db.exec(`
     score REAL,
     brut_h REAL,
     rentabilite_h REAL,
+    depart TEXT DEFAULT '',
+    arrivee TEXT DEFAULT '',
     calculated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
@@ -127,6 +129,8 @@ try { db.exec('ALTER TABLE users ADD COLUMN device_id TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN premium_since TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN subscription_type TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN cancelled_at TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE ride_calculations ADD COLUMN depart TEXT DEFAULT \'\''); } catch (_) {}
+try { db.exec('ALTER TABLE ride_calculations ADD COLUMN arrivee TEXT DEFAULT \'\''); } catch (_) {}
 
 // Paramètres par défaut
 const initSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
@@ -398,10 +402,22 @@ function deleteBroadcast(id) {
 // ═══════════════════════════════════════
 
 function saveRideCalculation(userId, data) {
-  db.prepare(`INSERT INTO ride_calculations (user_id, prix, distance_km, duree_min, approche_min, score, brut_h, rentabilite_h)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-    userId, data.prix, data.distanceKm, data.dureeMin, data.approcheMin, data.score, data.brutH, data.rentabiliteH
+  db.prepare(`INSERT INTO ride_calculations (user_id, prix, distance_km, duree_min, approche_min, score, brut_h, rentabilite_h, depart, arrivee)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    userId, data.prix, data.distanceKm, data.dureeMin, data.approcheMin, data.score, data.brutH, data.rentabiliteH, data.depart || '', data.arrivee || ''
   );
+}
+
+function getUserRides(userId, limit = 50) {
+  return db.prepare(`SELECT * FROM ride_calculations WHERE user_id = ? ORDER BY calculated_at DESC LIMIT ?`).all(userId, limit);
+}
+
+function getAllRides(limit = 100) {
+  return db.prepare(`
+    SELECT r.*, u.email, u.name FROM ride_calculations r
+    LEFT JOIN users u ON r.user_id = u.id
+    ORDER BY r.calculated_at DESC LIMIT ?
+  `).all(limit);
 }
 
 function getUserRideStats(userId) {
@@ -574,7 +590,7 @@ module.exports = {
   setResetToken, getUserByResetToken, resetPassword, updateLastSeen,
   createMessage, getAllMessages, getMessageById, markMessageRead, replyMessage, deleteMessage, getUnreadMessageCount, getUserMessages,
   createBroadcast, getAllBroadcasts, getRecentBroadcasts, deleteBroadcast,
-  saveRideCalculation, getUserRideStats,
+  saveRideCalculation, getUserRideStats, getUserRides, getAllRides,
   getSetting, setSetting, isMaintenanceMode,
   setHeartbeat, setHeartbeatByDevice, setOffline, setOfflineByDevice, getOnlineCount,
   getMonthlyAnalysisCount, getGlobalStats,
