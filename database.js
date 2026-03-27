@@ -221,7 +221,12 @@ function isUserPremium(user) {
 
 function getEffectivePlan(user) {
   if (!user) return 'free';
-  return isUserPremium(user) ? 'premium' : 'free';
+  if (isUserPremium(user)) return 'premium';
+  // Si le plan est premium mais expiré → downgrader en DB
+  if (user.plan === 'premium' && user.expires_at && new Date(user.expires_at) <= new Date()) {
+    db.prepare('UPDATE users SET plan = ? WHERE id = ?').run('free', user.id);
+  }
+  return 'free';
 }
 
 // Vérifie si l'utilisateur a accès à l'app
