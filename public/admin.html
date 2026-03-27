@@ -726,13 +726,9 @@ async function loadUiConfig() {
           <strong style="color:#fff">${info.label}</strong>
           <div style="color:#546e7a;font-size:12px">${info.desc}</div>
         </div>
-        <label style="position:relative;width:50px;height:26px;cursor:pointer">
-          <input type="checkbox" id="uic_${key}" ${isOn ? 'checked' : ''} style="opacity:0;width:0;height:0"
-            onchange="currentUiConfig['${key}']=this.checked">
-          <span style="position:absolute;inset:0;background:${isOn ? '#4CAF50' : '#37474f'};border-radius:26px;transition:.3s"
-            onclick="this.previousElementSibling.click();this.style.background=this.previousElementSibling.checked?'#4CAF50':'#37474f'"></span>
-          <span style="position:absolute;top:3px;left:${isOn ? '27' : '3'}px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s"
-            onclick="this.previousElementSibling.previousElementSibling.click();this.style.left=this.previousElementSibling.previousElementSibling.checked?'27px':'3px';this.previousElementSibling.style.background=this.previousElementSibling.previousElementSibling.checked?'#4CAF50':'#37474f'"></span>
+        <label class="toggle">
+          <input type="checkbox" id="uic_${key}" ${isOn ? 'checked' : ''} onchange="currentUiConfig['${key}']=this.checked">
+          <span class="slider"></span>
         </label>
       </div>`;
   });
@@ -758,7 +754,8 @@ async function loadRides() {
   // Populate user filter
   const select = document.getElementById('ridesFilter');
   if (select.options.length <= 1) {
-    const users = await api('/admin/api/users');
+    const usersRes = await api('/admin/api/users');
+    const users = await usersRes.json();
     users.forEach(u => {
       const opt = document.createElement('option');
       opt.value = u.id;
@@ -768,7 +765,8 @@ async function loadRides() {
   }
 
   let url = filter === 'all' ? '/admin/api/rides' : `/admin/api/users/${filter}/rides`;
-  const rides = await api(url);
+  const ridesRes = await api(url);
+  const rides = await ridesRes.json();
 
   if (!rides || rides.length === 0) {
     document.getElementById('ridesTable').innerHTML = '<p style="color:#546e7a">Aucune course enregistrée</p>';
