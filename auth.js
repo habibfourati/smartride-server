@@ -273,7 +273,6 @@ function setupAuthRoutes(app, db) {
       expires_at: user.expires_at || '',
       access,
       free_access: db.getSetting('free_access') === 'true',
-      payment_enabled: db.getSetting('payment_enabled') === 'true',
       analysis_month_limit: parseInt(db.getSetting('analysis_month_limit') || '6000')
     });
   });

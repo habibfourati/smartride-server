@@ -140,13 +140,7 @@
       <div class="flag-row">
         <div class="flag-info">
           <h3>Accès Gratuit : <span id="flagFreeStatus" style="color:#4CAF50">ACTIVÉ</span></h3>
-          <p>Les utilisateurs FREE peuvent utiliser l'app</p>
-        </div>
-      </div>
-      <div class="flag-row">
-        <div class="flag-info">
-          <h3>Paiement : <span id="flagPayStatus" style="color:#ef5350">DÉSACTIVÉ</span></h3>
-          <p>Les boutons de paiement sont visibles</p>
+          <p>ON = tout le monde utilise l'app gratuitement | OFF = seuls les Premium ont accès</p>
         </div>
       </div>
     </div>
@@ -185,7 +179,7 @@
       <div class="flag-row">
         <div class="flag-info">
           <h3>FREE_ACCESS</h3>
-          <p>Si activé, les utilisateurs gratuits ont accès à l'app</p>
+          <p>ON = tout le monde utilise l'app gratuitement, pas de paiement<br>OFF = seuls les Premium ont accès, les autres voient le paywall</p>
         </div>
         <label class="toggle">
           <input type="checkbox" id="flagFreeAccess" onchange="saveFlags()">
@@ -193,26 +187,14 @@
         </label>
       </div>
 
-      <div class="flag-row">
-        <div class="flag-info">
-          <h3>PAYMENT_ENABLED</h3>
-          <p>Si activé, les boutons de paiement et le paywall sont visibles</p>
-        </div>
-        <label class="toggle">
-          <input type="checkbox" id="flagPaymentEnabled" onchange="saveFlags()">
-          <span class="slider"></span>
-        </label>
-      </div>
-
       <div style="margin-top:24px;padding:20px;background:#1a2634;border-radius:12px">
         <h3 style="color:#fff;margin-bottom:12px">Résumé</h3>
         <table>
-          <thead><tr><th>Statut</th><th>FREE_ACCESS</th><th>PAYMENT_ENABLED</th><th>Résultat</th></tr></thead>
+          <thead><tr><th>Statut utilisateur</th><th>FREE_ACCESS</th><th>Résultat</th></tr></thead>
           <tbody>
-            <tr><td>FREE</td><td>ON</td><td>OFF</td><td style="color:#4CAF50">Accès</td></tr>
-            <tr><td>FREE</td><td>OFF</td><td>ON</td><td style="color:#ef5350">Bloqué → Paywall</td></tr>
-            <tr><td>FREE</td><td>OFF</td><td>OFF</td><td style="color:#ef5350">Bloqué</td></tr>
-            <tr><td>PREMIUM</td><td>*</td><td>*</td><td style="color:#4CAF50">Toujours accès</td></tr>
+            <tr><td>FREE</td><td>ON</td><td style="color:#4CAF50">Accès gratuit — pas de bouton paiement</td></tr>
+            <tr><td>FREE</td><td>OFF</td><td style="color:#ef5350">Bloqué → Paywall (3 offres)</td></tr>
+            <tr><td>PREMIUM</td><td>ON / OFF</td><td style="color:#4CAF50">Toujours accès</td></tr>
           </tbody>
         </table>
       </div>
@@ -318,8 +300,6 @@ async function loadAll() {
   // Flags overview
   document.getElementById('flagFreeStatus').textContent = s.freeAccess ? 'ACTIVÉ' : 'DÉSACTIVÉ';
   document.getElementById('flagFreeStatus').style.color = s.freeAccess ? '#4CAF50' : '#ef5350';
-  document.getElementById('flagPayStatus').textContent = s.paymentEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ';
-  document.getElementById('flagPayStatus').style.color = s.paymentEnabled ? '#4CAF50' : '#ef5350';
 
   // Monthly color
   const pct = s.monthlyAnalyses / s.analysisMonthLimit;
@@ -418,15 +398,13 @@ async function loadFlags() {
   const res = await api('/admin/api/flags');
   const d = await res.json();
   document.getElementById('flagFreeAccess').checked = d.free_access;
-  document.getElementById('flagPaymentEnabled').checked = d.payment_enabled;
 }
 
 async function saveFlags() {
   await api('/admin/api/flags', {
     method: 'POST',
     body: JSON.stringify({
-      free_access: document.getElementById('flagFreeAccess').checked,
-      payment_enabled: document.getElementById('flagPaymentEnabled').checked
+      free_access: document.getElementById('flagFreeAccess').checked
     })
   });
   loadAll();

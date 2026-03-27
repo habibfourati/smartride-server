@@ -83,7 +83,7 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
   // Vérifier accès : premium OU free_access activé
   const freeAccess = db.getSetting('free_access') === 'true';
   if (!db.isUserPremium(user) && !freeAccess) {
-    return res.status(403).json({ error: 'Fonctionnalité premium requise', plan: 'free', showPaywall: db.getSetting('payment_enabled') === 'true' });
+    return res.status(403).json({ error: 'Abonnement requis', showPaywall: true });
   }
 
   // Vérifier limite globale mensuelle
@@ -281,19 +281,15 @@ app.post('/admin/api/users/:id/reset-device', adminAuth, (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// ── FLAGS FREE_ACCESS / PAYMENT_ENABLED ──
+// ── FLAG FREE_ACCESS ──
 app.get('/admin/api/flags', adminAuth, (req, res) => {
-  res.json({
-    free_access: db.getSetting('free_access') === 'true',
-    payment_enabled: db.getSetting('payment_enabled') === 'true'
-  });
+  res.json({ free_access: db.getSetting('free_access') === 'true' });
 });
 
 app.post('/admin/api/flags', adminAuth, (req, res) => {
-  const { free_access, payment_enabled } = req.body;
+  const { free_access } = req.body;
   if (free_access !== undefined) db.setSetting('free_access', free_access ? 'true' : 'false');
-  if (payment_enabled !== undefined) db.setSetting('payment_enabled', payment_enabled ? 'true' : 'false');
-  res.json({ status: 'ok', free_access: db.getSetting('free_access') === 'true', payment_enabled: db.getSetting('payment_enabled') === 'true' });
+  res.json({ status: 'ok', free_access: db.getSetting('free_access') === 'true' });
 });
 
 // ── MESSAGES / CONTACT ──

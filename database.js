@@ -110,7 +110,6 @@ initSetting.run('latest_app_version', '1.0');
 initSetting.run('admin_password', 'smartride2024');
 initSetting.run('analysis_month_limit', '6000');
 initSetting.run('free_access', 'true');
-initSetting.run('payment_enabled', 'false');
 
 console.log('[DB] Base initialisée');
 
@@ -230,20 +229,16 @@ function checkAccess(user) {
   if (!user) return { allowed: false, reason: 'Utilisateur introuvable' };
   if (user.banned) return { allowed: false, reason: user.ban_reason || 'Compte suspendu' };
 
-  const freeAccess = getSetting('free_access') === 'true';
-  const paymentEnabled = getSetting('payment_enabled') === 'true';
-
   // Premium → toujours accès
   if (isUserPremium(user)) return { allowed: true, plan: 'premium' };
 
-  // FREE + free_access = true → accès
+  const freeAccess = getSetting('free_access') === 'true';
+
+  // FREE_ACCESS ON → accès gratuit
   if (freeAccess) return { allowed: true, plan: 'free' };
 
-  // FREE + free_access = false + payment_enabled = true → bloqué, montrer paywall
-  if (paymentEnabled) return { allowed: false, reason: 'paywall', showPaywall: true };
-
-  // FREE + free_access = false + payment_enabled = false → bloqué
-  return { allowed: false, reason: 'Accès désactivé. Contactez le support.' };
+  // FREE_ACCESS OFF → paywall
+  return { allowed: false, reason: 'paywall', showPaywall: true };
 }
 
 // ═══════════════════════════════════════
@@ -444,8 +439,7 @@ function getGlobalStats() {
     analysisMonthLimit: parseInt(getSetting('analysis_month_limit') || '6000'),
     onlineNow: getOnlineCount(),
     unreadMessages,
-    freeAccess: getSetting('free_access') === 'true',
-    paymentEnabled: getSetting('payment_enabled') === 'true'
+    freeAccess: getSetting('free_access') === 'true'
   };
 }
 
