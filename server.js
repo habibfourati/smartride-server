@@ -49,100 +49,24 @@ function adminAuth(req, res, next) {
 // API PUBLIQUE (appelée par l'app Android)
 // ═══════════════════════════════════════════════════════
 
-// Enregistrer / identifier un appareil
-app.post('/api/register', checkMaintenance, (req, res) => {
-  const { device_id, email, phone, name } = req.body;
-  if (!device_id) return res.status(400).json({ error: 'device_id requis' });
-
-  const user = db.registerUser(device_id, email, phone, name);
-
-  // Vérifier si le plan premium a expiré
-  let plan = user.plan;
-  if (plan === 'premium' && user.expires_at && new Date(user.expires_at) < new Date()) {
-    db.setUserPlan(user.id, 'free', null);
-    plan = 'free';
-  }
-
-  res.json({
-    status: 'ok',
-    user_id: user.id,
-    plan: plan,
-    banned: user.banned === 1,
-    expires_at: user.expires_at
-  });
-});
-
-// Vérifier la licence (appelé à chaque démarrage de l'app)
-app.post('/api/verify', checkMaintenance, (req, res) => {
-  const { device_id } = req.body;
-  if (!device_id) return res.status(400).json({ error: 'device_id requis' });
-
-  const user = db.getUser(device_id);
-  if (!user) {
-    return res.json({ status: 'unknown', message: 'Appareil non enregistré' });
-  }
-
-  if (user.banned) {
-    return res.json({
-      status: 'banned',
-      message: user.ban_reason || 'Votre compte a été suspendu'
-    });
-  }
-
-  // Vérifier expiration premium
-  let plan = user.plan;
-  if (plan === 'premium' && user.expires_at && new Date(user.expires_at) < new Date()) {
-    db.setUserPlan(user.id, 'free', null);
-    plan = 'free';
-  }
-
-  res.json({
-    status: 'ok',
-    plan: plan,
-    expires_at: user.expires_at,
-    min_version: db.getSetting('min_app_version'),
-    analysis_month_limit: parseInt(db.getSetting('analysis_month_limit') || '6000')
-  });
-});
-
-// Activer une clé de licence
-app.post('/api/redeem', checkMaintenance, (req, res) => {
-  const { device_id, key } = req.body;
-  if (!device_id || !key) return res.status(400).json({ error: 'device_id et key requis' });
-
-  const result = db.redeemLicenseKey(device_id, key);
-  res.json(result);
-});
-
-// Calcul de score — accepte JWT Bearer OU device_id
+// Calcul de score — JWT obligatoire
 app.post('/api/calculate', checkMaintenance, (req, res) => {
   const { prix, distance_km, duree_min, approche_min, approche_km, zone_distance_km } = req.body;
 
-  // Essayer JWT d'abord
-  let user = null;
+  // Authentification JWT obligatoire
   const authHeader = req.headers['authorization'];
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const decoded = verifyToken(authHeader.substring(7));
-    if (decoded) user = db.getUserById(decoded.userId);
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentification requise' });
   }
+  const decoded = verifyToken(authHeader.substring(7));
+  if (!decoded) return res.status(401).json({ error: 'Token invalide ou expiré' });
 
-  // Fallback device_id
-  if (!user) {
-    const { device_id } = req.body;
-    if (!device_id) return res.status(400).json({ error: 'Authentification requise' });
-    user = db.getUser(device_id);
-    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
-  }
-
+  const user = db.getUserById(decoded.userId);
+  if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
   if (user.banned) return res.status(403).json({ error: 'Compte suspendu' });
 
-  // Vérifier premium
-  let plan = user.plan;
-  if (plan === 'premium' && user.expires_at && new Date(user.expires_at) < new Date()) {
-    db.setUserPlan(user.id, 'free', null);
-    plan = 'free';
-  }
-  if (plan !== 'premium') {
+  // Vérifier premium avec fonction centralisée
+  if (!db.isUserPremium(user)) {
     return res.status(403).json({ error: 'Fonctionnalité premium requise', plan: 'free' });
   }
 
@@ -288,17 +212,6 @@ app.get('/admin/api/users/:id/stats', adminAuth, (req, res) => {
   res.json({ user, rideStats });
 });
 
-// Générer des clés de licence
-app.post('/admin/api/licenses/generate', adminAuth, (req, res) => {
-  const { plan, duration_days, count } = req.body;
-  const keys = db.generateLicenseKey(plan, duration_days, count);
-  res.json({ keys });
-});
-
-// Lister les clés
-app.get('/admin/api/licenses', adminAuth, (req, res) => {
-  res.json(db.getAllLicenseKeys());
-});
 
 // Compteur en ligne (léger, pour auto-refresh)
 app.get('/admin/api/online', adminAuth, (req, res) => {

@@ -362,9 +362,8 @@ function getEffectivePlan(user) {
 }
 
 module.exports = {
-  registerUser, getUser, getUserById, getAllUsers,
+  getUserById, getAllUsers,
   banUser, unbanUser, deleteUser, setUserPlan,
-  generateLicenseKey, redeemLicenseKey, getAllLicenseKeys,
   saveRideCalculation, getUserRideStats,
   getSetting, setSetting, isMaintenanceMode,
   getGlobalStats, getMonthlyAnalysisCount,
