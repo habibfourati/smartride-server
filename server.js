@@ -45,6 +45,21 @@ function adminAuth(req, res, next) {
   next();
 }
 
+// Debug volume (temporaire)
+app.get('/api/debug-db', (req, res) => {
+  const dbPath = process.env.RAILWAY_VOLUME_MOUNT_PATH
+    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'smartride.db')
+    : path.join(__dirname, 'smartride.db');
+  const fs = require('fs');
+  res.json({
+    RAILWAY_VOLUME_MOUNT_PATH: process.env.RAILWAY_VOLUME_MOUNT_PATH || 'NOT SET',
+    dbPath,
+    dbExists: fs.existsSync(dbPath),
+    userCount: db.getAllUsers().length,
+    users: db.getAllUsers().map(u => ({ email: u.email, plan: u.plan }))
+  });
+});
+
 // ═══════════════════════════════════════════════════════
 // API PUBLIQUE (appelée par l'app Android)
 // ═══════════════════════════════════════════════════════
