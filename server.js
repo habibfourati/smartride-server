@@ -234,13 +234,15 @@ app.get('/admin/api/stats', adminAuth, (req, res) => {
 // Liste des utilisateurs
 app.get('/admin/api/users', adminAuth, (req, res) => {
   const users = db.getAllUsers().map(u => {
-    const stats = db.getUserAnalytics(u.id);
+    const analytics = db.getUserAnalytics(u.id);
     const rideStats = db.getUserRideStats(u.id);
     const isOnline = u.last_heartbeat && new Date(u.last_heartbeat + 'Z') >= new Date(Date.now() - 3 * 60 * 1000);
+    const analyticsRides = analytics?.totals?.total_rides_accepted || 0;
+    const dbAnalyses = rideStats?.total_rides || 0;
     return {
       ...u,
-      total_analyses: rideStats?.total_rides || 0,
-      total_rides_accepted: stats?.totals?.total_rides_accepted || 0,
+      total_analyses: dbAnalyses,
+      total_rides_accepted: Math.max(analyticsRides, dbAnalyses),
       is_online: !!isOnline
     };
   });
