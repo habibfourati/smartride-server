@@ -296,10 +296,6 @@ function createAccount(email, passwordHash, name, verifyToken) {
   return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
 }
 
-function activateAccount(userId) {
-  db.prepare('UPDATE users SET email_verified = 1, email_verify_token = NULL WHERE id = ?').run(userId);
-}
-
 function verifyEmailToken(token) {
   const user = db.prepare('SELECT * FROM users WHERE email_verify_token = ?').get(token);
   if (!user) return null;
@@ -348,6 +344,23 @@ function getUserByStripeCustomer(customerId) {
   return db.prepare('SELECT * FROM users WHERE stripe_customer_id = ?').get(customerId);
 }
 
+// Vérifier si un utilisateur est premium (centralisé)
+function isUserPremium(user) {
+  if (!user) return false;
+  if (user.plan !== 'premium') return false;
+  if (user.banned) return false;
+  // Lifetime = pas d'expiration
+  if (!user.expires_at) return true;
+  return new Date(user.expires_at) > new Date();
+}
+
+// Récupérer le plan effectif (vérifie l'expiration)
+function getEffectivePlan(user) {
+  if (!user) return 'free';
+  if (isUserPremium(user)) return 'premium';
+  return 'free';
+}
+
 module.exports = {
   registerUser, getUser, getUserById, getAllUsers,
   banUser, unbanUser, deleteUser, setUserPlan,
@@ -357,9 +370,9 @@ module.exports = {
   getGlobalStats, getMonthlyAnalysisCount,
   setHeartbeat, setOffline, getOnlineCount,
   // Comptes
-  getUserByEmail, createAccount, activateAccount, verifyEmailToken,
+  getUserByEmail, createAccount, verifyEmailToken,
   createGoogleAccount, linkGoogleId,
   setResetToken, getUserByResetToken, resetPassword,
   updateLastSeen, setStripeCustomer, setStripeSubscription,
-  getUserByStripeCustomer
+  getUserByStripeCustomer, isUserPremium, getEffectivePlan
 };

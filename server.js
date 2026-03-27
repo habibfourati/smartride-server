@@ -37,7 +37,7 @@ function checkMaintenance(req, res, next) {
 
 // Middleware admin auth (simple password dans header)
 function adminAuth(req, res, next) {
-  const password = req.headers['x-admin-password'] || req.query.password;
+  const password = req.headers['x-admin-password'];
   const adminPwd = db.getSetting('admin_password');
   if (password !== adminPwd) {
     return res.status(401).json({ error: 'Accès refusé' });
