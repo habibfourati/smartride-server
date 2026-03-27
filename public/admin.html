@@ -152,7 +152,7 @@
       <h2 class="section-title">Utilisateurs</h2>
       <table>
         <thead>
-          <tr><th>Email</th><th>Nom</th><th>Tél</th><th>Plan</th><th>Appareil</th><th>Inscrit</th><th>Actions</th></tr>
+          <tr><th>Statut</th><th>Email</th><th>Nom</th><th>Plan</th><th>Courses</th><th>Analyses</th><th>Inscrit</th><th>Actions</th></tr>
         </thead>
         <tbody id="usersList"></tbody>
       </table>
@@ -394,14 +394,17 @@ async function loadUsers() {
     const plan = u.banned ? '<span class="badge badge-banned">Banni</span>'
       : u.plan === 'premium' ? '<span class="badge badge-premium">Premium</span>'
       : '<span class="badge badge-free">Free</span>';
-    const device = u.device_id ? u.device_id.substring(0, 12) + '...' : '<span style="color:#546e7a">Aucun</span>';
     const date = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '';
+    const onlineDot = u.is_online
+      ? '<span class="online-dot"></span> En ligne'
+      : '<span style="color:#546e7a">Hors ligne</span>';
     return `<tr>
-      <td>${u.email || ''}</td>
+      <td>${onlineDot}</td>
+      <td>${u.email || ''}<br><span style="color:#546e7a;font-size:11px">${u.phone || ''}</span></td>
       <td>${u.name || ''}</td>
-      <td>${u.phone || ''}</td>
       <td>${plan}</td>
-      <td style="font-size:11px">${device}</td>
+      <td style="text-align:center;color:#42a5f5;font-weight:600">${u.total_rides_accepted || 0}</td>
+      <td style="text-align:center;color:#FFA726;font-weight:600">${u.total_analyses || 0}</td>
       <td>${date}</td>
       <td class="actions">
         ${u.banned
@@ -410,8 +413,8 @@ async function loadUsers() {
         ${u.plan !== 'premium'
           ? `<button class="btn btn-green" onclick="setPlan('${u.id}','premium')">→ Premium</button>`
           : `<button class="btn btn-gray" onclick="setPlan('${u.id}','free')">→ Free</button>`}
-        ${u.device_id ? `<button class="btn btn-blue" onclick="resetDevice('${u.id}')">Reset appareil</button>` : ''}
-        <button class="btn btn-red" onclick="deleteUser('${u.id}')">Supprimer</button>
+        ${u.device_id ? `<button class="btn btn-blue" onclick="resetDevice('${u.id}')">Reset</button>` : ''}
+        <button class="btn btn-red" onclick="deleteUser('${u.id}')">Suppr</button>
       </td>
     </tr>`;
   }).join('');

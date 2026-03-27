@@ -233,7 +233,18 @@ app.get('/admin/api/stats', adminAuth, (req, res) => {
 
 // Liste des utilisateurs
 app.get('/admin/api/users', adminAuth, (req, res) => {
-  res.json(db.getAllUsers());
+  const users = db.getAllUsers().map(u => {
+    const stats = db.getUserAnalytics(u.id);
+    const rideStats = db.getUserRideStats(u.id);
+    const isOnline = u.last_heartbeat && new Date(u.last_heartbeat + 'Z') >= new Date(Date.now() - 3 * 60 * 1000);
+    return {
+      ...u,
+      total_analyses: rideStats?.total_rides || 0,
+      total_rides_accepted: stats?.totals?.total_rides_accepted || 0,
+      is_online: !!isOnline
+    };
+  });
+  res.json(users);
 });
 
 // Bannir un utilisateur
