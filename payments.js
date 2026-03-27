@@ -10,7 +10,7 @@ function setupPaymentRoutes(app, db, requireAuth) {
   // Créer une session de paiement Stripe Checkout
   app.post('/api/payments/checkout', requireAuth, async (req, res) => {
     try {
-      const { priceId } = req.body;
+      const { priceId, interval } = req.body;
       const user = db.getUserById(req.userId);
       if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
@@ -26,22 +26,32 @@ function setupPaymentRoutes(app, db, requireAuth) {
         db.setStripeCustomer(user.id, customerId);
       }
 
-      // Utiliser le priceId fourni ou les prix depuis .env
-      const finalPriceId = priceId
-        || (req.body.interval === 'year' ? process.env.STRIPE_PRICE_YEARLY : process.env.STRIPE_PRICE_MONTHLY);
+      // Déterminer le prix selon l'interval
+      let finalPriceId = priceId;
+      let isLifetime = false;
+      if (!finalPriceId) {
+        if (interval === 'lifetime') {
+          finalPriceId = process.env.STRIPE_PRICE_LIFETIME;
+          isLifetime = true;
+        } else if (interval === 'year') {
+          finalPriceId = process.env.STRIPE_PRICE_YEARLY;
+        } else {
+          finalPriceId = process.env.STRIPE_PRICE_MONTHLY;
+        }
+      }
 
       if (!finalPriceId || finalPriceId.includes('REMPLACER')) {
-        return res.status(400).json({ error: 'Prix Stripe non configuré. Créez les prix dans le dashboard Stripe.' });
+        return res.status(400).json({ error: 'Prix Stripe non configuré.' });
       }
 
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
-        mode: 'subscription',
+        mode: isLifetime ? 'payment' : 'subscription',
         payment_method_types: ['card'],
         line_items: [{ price: finalPriceId, quantity: 1 }],
         success_url: `${APP_URL}/payment-success.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${APP_URL}/payment-cancel.html`,
-        metadata: { userId: user.id }
+        metadata: { userId: user.id, plan: interval || 'month' }
       });
 
       res.json({ url: session.url, sessionId: session.id });
