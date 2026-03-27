@@ -120,6 +120,7 @@
     <div class="nav-btn" onclick="showTab('messages')">Messages <span class="badge" id="msgBadge" style="display:none">0</span></div>
     <div class="nav-btn" onclick="showTab('access')">Accès</div>
     <div class="nav-btn" onclick="showTab('rides')">Courses</div>
+    <div class="nav-btn" onclick="showTab('uiconfig')">Config App</div>
     <div class="nav-btn" onclick="showTab('analytics')">Analytics</div>
     <div class="nav-btn" onclick="showTab('killswitch')">Kill Switch</div>
     <div class="nav-btn" onclick="showTab('settings')">Paramètres</div>
@@ -221,6 +222,24 @@
         </select>
       </div>
       <div id="ridesTable"></div>
+    </div>
+
+    <!-- TAB: CONFIG APP -->
+    <div class="tab-content" id="tab-uiconfig" style="display:none">
+      <h2 class="section-title">Configuration de l'application</h2>
+      <p style="color:#546e7a;margin-bottom:20px">Contrôlez en temps réel ce qui est visible dans l'app. Les changements s'appliquent au prochain lancement ou heartbeat.</p>
+
+      <div class="card" style="margin-bottom:20px">
+        <h3 style="color:#fff;margin-bottom:16px">Pages / Onglets</h3>
+        <div id="uiConfigPages" style="display:grid;gap:12px"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <h3 style="color:#fff;margin-bottom:16px">Sections Réglages</h3>
+        <div id="uiConfigSettings" style="display:grid;gap:12px"></div>
+      </div>
+
+      <button class="btn btn-green" onclick="saveUiConfig()" style="padding:12px 32px;font-size:16px">Sauvegarder la configuration</button>
     </div>
 
     <!-- TAB: ANALYTICS -->
@@ -363,6 +382,7 @@ function showTab(name) {
   if (name === 'messages') { loadMessages(); loadBroadcasts(); }
   if (name === 'access') loadFlags();
   if (name === 'rides') loadRides();
+  if (name === 'uiconfig') loadUiConfig();
   if (name === 'analytics') loadAnalytics();
   if (name === 'killswitch') loadKillSwitch();
   if (name === 'settings') loadSettings();
@@ -669,6 +689,67 @@ async function deleteBroadcast(id) {
   if (!confirm('Supprimer ce broadcast ?')) return;
   await api(`/admin/api/broadcasts/${id}`, { method: 'DELETE' });
   loadBroadcasts();
+}
+
+// ── CONFIG APP ──
+const uiConfigLabels = {
+  tab_courses: { label: 'Onglet Courses', desc: 'Liste des courses analysées' },
+  tab_stats: { label: 'Onglet Statistiques', desc: 'Graphiques et stats globales' },
+  tab_settings: { label: 'Onglet Réglages', desc: 'Tous les paramètres de l\'app' },
+  setting_vehicle: { label: 'Véhicule', desc: 'Prix carburant, consommation, entretien' },
+  setting_seuils: { label: 'Seuils rentabilité', desc: 'Seuil rouge et orange (€/h)' },
+  setting_approche: { label: 'Approche', desc: 'Distance max, durée max, pénalité' },
+  setting_course: { label: 'Course', desc: 'Prix minimum' },
+  setting_zones: { label: 'Zones de base', desc: 'Adresses de retour et zones' },
+  setting_notification: { label: 'Notification', desc: 'Durée d\'affichage overlay' },
+  setting_server_url: { label: 'URL Serveur', desc: 'Adresse du serveur API' },
+  setting_account: { label: 'Compte', desc: 'Infos compte, premium, déconnexion' }
+};
+
+let currentUiConfig = {};
+
+async function loadUiConfig() {
+  const res = await api('/admin/api/ui-config');
+  currentUiConfig = await res.json();
+
+  const pagesContainer = document.getElementById('uiConfigPages');
+  const settingsContainer = document.getElementById('uiConfigSettings');
+  pagesContainer.innerHTML = '';
+  settingsContainer.innerHTML = '';
+
+  Object.entries(uiConfigLabels).forEach(([key, info]) => {
+    const isOn = currentUiConfig[key] !== false;
+    const container = key.startsWith('tab_') ? pagesContainer : settingsContainer;
+    container.innerHTML += `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#0f1923;border-radius:8px">
+        <div>
+          <strong style="color:#fff">${info.label}</strong>
+          <div style="color:#546e7a;font-size:12px">${info.desc}</div>
+        </div>
+        <label style="position:relative;width:50px;height:26px;cursor:pointer">
+          <input type="checkbox" id="uic_${key}" ${isOn ? 'checked' : ''} style="opacity:0;width:0;height:0"
+            onchange="currentUiConfig['${key}']=this.checked">
+          <span style="position:absolute;inset:0;background:${isOn ? '#4CAF50' : '#37474f'};border-radius:26px;transition:.3s"
+            onclick="this.previousElementSibling.click();this.style.background=this.previousElementSibling.checked?'#4CAF50':'#37474f'"></span>
+          <span style="position:absolute;top:3px;left:${isOn ? '27' : '3'}px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s"
+            onclick="this.previousElementSibling.previousElementSibling.click();this.style.left=this.previousElementSibling.previousElementSibling.checked?'27px':'3px';this.previousElementSibling.style.background=this.previousElementSibling.previousElementSibling.checked?'#4CAF50':'#37474f'"></span>
+        </label>
+      </div>`;
+  });
+}
+
+async function saveUiConfig() {
+  // Relire les checkboxes
+  Object.keys(uiConfigLabels).forEach(key => {
+    const cb = document.getElementById('uic_' + key);
+    if (cb) currentUiConfig[key] = cb.checked;
+  });
+
+  await api('/admin/api/ui-config', {
+    method: 'POST',
+    body: JSON.stringify(currentUiConfig)
+  });
+  alert('Configuration sauvegardée ! Les changements s\'appliqueront au prochain lancement de l\'app.');
 }
 
 // ── COURSES ──

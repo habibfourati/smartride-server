@@ -145,6 +145,23 @@ initSetting.run('app_active', 'true');
 initSetting.run('app_redirect_url', 'https://smartride-ai.com');
 initSetting.run('app_kill_message', 'App désactivée. Téléchargez la nouvelle version.');
 
+// UI Config — contrôle à distance de l'affichage app
+initSetting.run('ui_config', JSON.stringify({
+  // Pages
+  tab_courses: true,
+  tab_stats: true,
+  tab_settings: true,
+  // Réglages
+  setting_vehicle: true,
+  setting_seuils: true,
+  setting_approche: true,
+  setting_course: true,
+  setting_zones: true,
+  setting_notification: true,
+  setting_server_url: true,
+  setting_account: true
+}));
+
 console.log('[DB] Base initialisée');
 
 // ═══════════════════════════════════════

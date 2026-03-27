@@ -394,6 +394,18 @@ app.get('/admin/api/users/:id/rides', adminAuth, (req, res) => {
   res.json(db.getUserRides(req.params.id));
 });
 
+// ── UI CONFIG ADMIN ──
+app.get('/admin/api/ui-config', adminAuth, (req, res) => {
+  const raw = db.getSetting('ui_config');
+  try { res.json(JSON.parse(raw)); } catch(_) { res.json({}); }
+});
+
+app.post('/admin/api/ui-config', adminAuth, (req, res) => {
+  const config = req.body;
+  db.setSetting('ui_config', JSON.stringify(config));
+  res.json({ status: 'ok', config });
+});
+
 // ── ANALYTICS ADMIN ──
 app.get('/admin/api/analytics', adminAuth, (req, res) => {
   res.json(db.getAnalyticsSummary());

@@ -264,6 +264,9 @@ function setupAuthRoutes(app, db) {
 
     const access = db.checkAccess(user);
 
+    let uiConfig = {};
+    try { uiConfig = JSON.parse(db.getSetting('ui_config') || '{}'); } catch(_) {}
+
     res.json({
       status: 'ok',
       email: user.email,
@@ -273,7 +276,8 @@ function setupAuthRoutes(app, db) {
       expires_at: user.expires_at || '',
       access,
       free_access: db.getSetting('free_access') === 'true',
-      analysis_month_limit: parseInt(db.getSetting('analysis_month_limit') || '6000')
+      analysis_month_limit: parseInt(db.getSetting('analysis_month_limit') || '6000'),
+      ui_config: uiConfig
     });
   });
 
