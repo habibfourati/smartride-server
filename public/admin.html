@@ -156,6 +156,15 @@
         </thead>
         <tbody id="usersList"></tbody>
       </table>
+
+      <!-- Détail utilisateur (popup) -->
+      <div id="userDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;overflow-y:auto">
+        <div style="max-width:600px;margin:40px auto;background:#1a2634;border-radius:16px;padding:24px;position:relative">
+          <span onclick="closeUserDetail()" style="position:absolute;top:12px;right:16px;color:#ef5350;cursor:pointer;font-size:20px">✕</span>
+          <h2 style="color:#4CAF50;margin-bottom:16px" id="detailTitle">Détail utilisateur</h2>
+          <div id="detailContent"></div>
+        </div>
+      </div>
     </div>
 
     <!-- TAB: MESSAGES -->
@@ -413,7 +422,8 @@ async function loadUsers() {
         ${u.plan !== 'premium'
           ? `<button class="btn btn-green" onclick="setPlan('${u.id}','premium')">→ Premium</button>`
           : `<button class="btn btn-gray" onclick="setPlan('${u.id}','free')">→ Free</button>`}
-        ${u.device_id ? `<button class="btn btn-blue" onclick="resetDevice('${u.id}')">Reset</button>` : ''}
+        <button class="btn btn-blue" onclick="showUserDetail('${u.id}')">Voir</button>
+        ${u.device_id ? `<button class="btn btn-gray" onclick="resetDevice('${u.id}')">Reset</button>` : ''}
         <button class="btn btn-red" onclick="deleteUser('${u.id}')">Suppr</button>
       </td>
     </tr>`;
@@ -425,6 +435,79 @@ async function unbanUser(id) { await api(`/admin/api/users/${id}/unban`, { metho
 async function setPlan(id, plan) { await api(`/admin/api/users/${id}/plan`, { method: 'POST', body: JSON.stringify({ plan }) }); loadUsers(); loadAll(); }
 async function resetDevice(id) { if(!confirm('Reset appareil ? L\'utilisateur pourra se connecter depuis un autre téléphone.')) return; await api(`/admin/api/users/${id}/reset-device`, { method: 'POST' }); loadUsers(); }
 async function deleteUser(id) { if(!confirm('Supprimer cet utilisateur ?')) return; await api(`/admin/api/users/${id}`, { method: 'DELETE' }); loadUsers(); loadAll(); }
+
+// ── DÉTAIL UTILISATEUR ──
+async function showUserDetail(id) {
+  try {
+    const [statsRes, analyticsRes] = await Promise.all([
+      api(`/admin/api/users/${id}/stats`),
+      api(`/admin/api/users/${id}/analytics`)
+    ]);
+    const stats = await statsRes.json();
+    const analytics = await analyticsRes.json();
+    const u = stats.user;
+    const r = stats.rideStats;
+    const t = analytics.totals;
+
+    const isOnline = u.last_heartbeat && new Date(u.last_heartbeat + 'Z') >= new Date(Date.now() - 3 * 60 * 1000);
+    const statusDot = isOnline ? '<span class="online-dot"></span> En ligne' : '<span style="color:#546e7a">Hors ligne</span>';
+    const planBadge = u.banned ? '<span class="badge badge-banned">Banni</span>'
+      : u.plan === 'premium' ? '<span class="badge badge-premium">Premium</span>'
+      : '<span class="badge badge-free">Free</span>';
+
+    document.getElementById('detailTitle').textContent = u.name || u.email;
+    document.getElementById('detailContent').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div><span style="color:#546e7a">Email:</span><br><strong style="color:#fff">${u.email}</strong></div>
+        <div><span style="color:#546e7a">Téléphone:</span><br><strong style="color:#fff">${u.phone || '—'}</strong></div>
+        <div><span style="color:#546e7a">Statut:</span><br>${statusDot}</div>
+        <div><span style="color:#546e7a">Plan:</span><br>${planBadge}</div>
+        <div><span style="color:#546e7a">Inscrit le:</span><br><strong style="color:#fff">${u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}</strong></div>
+        <div><span style="color:#546e7a">Dernière activité:</span><br><strong style="color:#fff">${u.last_seen ? new Date(u.last_seen).toLocaleString('fr-FR') : '—'}</strong></div>
+        <div><span style="color:#546e7a">Appareil:</span><br><strong style="color:#fff;font-size:11px;word-break:break-all">${u.device_id || 'Aucun'}</strong></div>
+        ${u.expires_at ? `<div><span style="color:#546e7a">Expiration:</span><br><strong style="color:#FFA726">${new Date(u.expires_at).toLocaleDateString('fr-FR')}</strong></div>` : ''}
+      </div>
+
+      <h3 style="color:#fff;margin-bottom:12px">Statistiques courses</h3>
+      <div class="stats-grid" style="margin-bottom:20px">
+        <div class="stat-card blue"><div class="number">${t?.total_rides_accepted || r?.total_rides || 0}</div><div class="label">Courses acceptées</div></div>
+        <div class="stat-card orange"><div class="number">${r?.total_rides || 0}</div><div class="label">Analyses faites</div></div>
+        <div class="stat-card green"><div class="number">${r?.avg_score || '—'}</div><div class="label">Score moyen</div></div>
+        <div class="stat-card"><div class="number">${r?.avg_brut_h || '—'}</div><div class="label">Brut/h moyen</div></div>
+        <div class="stat-card green"><div class="number">${r?.best_brut_h || '—'}</div><div class="label">Meilleur brut/h</div></div>
+        <div class="stat-card"><div class="number">${r?.total_revenue ? r.total_revenue + '€' : '—'}</div><div class="label">CA total</div></div>
+      </div>
+
+      <h3 style="color:#fff;margin-bottom:12px">Usage app</h3>
+      <div class="stats-grid" style="margin-bottom:20px">
+        <div class="stat-card"><div class="number">${t?.total_opens || 0}</div><div class="label">Ouvertures app</div></div>
+        <div class="stat-card"><div class="number">${t?.total_results_viewed || 0}</div><div class="label">Résultats vus</div></div>
+      </div>
+
+      ${analytics.usage && analytics.usage.length > 0 ? `
+        <h3 style="color:#fff;margin-bottom:12px">Activité récente</h3>
+        <table>
+          <thead><tr><th>Date</th><th>Ouvertures</th><th>Courses</th><th>Analyses</th><th>Résultats</th></tr></thead>
+          <tbody>${analytics.usage.map(d => `
+            <tr>
+              <td>${d.date}</td>
+              <td>${d.app_opens || 0}</td>
+              <td>${d.rides_accepted || 0}</td>
+              <td>${d.analyses_done || 0}</td>
+              <td>${d.results_viewed || 0}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>
+      ` : '<p style="color:#546e7a">Aucune activité récente</p>'}
+    `;
+
+    document.getElementById('userDetailModal').style.display = 'block';
+  } catch(e) { alert('Erreur chargement détail'); }
+}
+
+function closeUserDetail() {
+  document.getElementById('userDetailModal').style.display = 'none';
+}
 
 // ── MESSAGES ──
 async function loadMessages() {
