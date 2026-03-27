@@ -219,11 +219,6 @@
         <select id="ridesFilter" onchange="loadRides()" style="padding:8px 12px;background:#1a2634;border:1px solid #263238;border-radius:8px;color:#fff;font-size:14px">
           <option value="all">Tous les utilisateurs</option>
         </select>
-        <select id="ridesLimit" onchange="loadRides()" style="padding:8px 12px;background:#1a2634;border:1px solid #263238;border-radius:8px;color:#fff;font-size:14px;margin-left:8px">
-          <option value="50">50 dernières</option>
-          <option value="100" selected>100 dernières</option>
-          <option value="500">500 dernières</option>
-        </select>
       </div>
       <div id="ridesTable"></div>
     </div>
@@ -461,7 +456,7 @@ async function showUserDetail(id) {
     const [statsRes, analyticsRes, ridesRes] = await Promise.all([
       api(`/admin/api/users/${id}/stats`),
       api(`/admin/api/users/${id}/analytics`),
-      api(`/admin/api/users/${id}/rides?limit=20`)
+      api(`/admin/api/users/${id}/rides`)
     ]);
     const stats = await statsRes.json();
     const analytics = await analyticsRes.json();
@@ -679,8 +674,6 @@ async function deleteBroadcast(id) {
 // ── COURSES ──
 async function loadRides() {
   const filter = document.getElementById('ridesFilter').value;
-  const limit = document.getElementById('ridesLimit').value;
-
   // Populate user filter
   const select = document.getElementById('ridesFilter');
   if (select.options.length <= 1) {
@@ -693,7 +686,7 @@ async function loadRides() {
     });
   }
 
-  let url = filter === 'all' ? `/admin/api/rides?limit=${limit}` : `/admin/api/users/${filter}/rides?limit=${limit}`;
+  let url = filter === 'all' ? '/admin/api/rides' : `/admin/api/users/${filter}/rides`;
   const rides = await api(url);
 
   if (!rides || rides.length === 0) {

@@ -408,16 +408,16 @@ function saveRideCalculation(userId, data) {
   );
 }
 
-function getUserRides(userId, limit = 50) {
-  return db.prepare(`SELECT * FROM ride_calculations WHERE user_id = ? ORDER BY calculated_at DESC LIMIT ?`).all(userId, limit);
+function getUserRides(userId) {
+  return db.prepare(`SELECT * FROM ride_calculations WHERE user_id = ? ORDER BY calculated_at DESC`).all(userId);
 }
 
-function getAllRides(limit = 100) {
+function getAllRides() {
   return db.prepare(`
     SELECT r.*, u.email, u.name FROM ride_calculations r
     LEFT JOIN users u ON r.user_id = u.id
-    ORDER BY r.calculated_at DESC LIMIT ?
-  `).all(limit);
+    ORDER BY r.calculated_at DESC
+  `).all();
 }
 
 function getUserRideStats(userId) {

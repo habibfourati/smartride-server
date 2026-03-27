@@ -387,13 +387,11 @@ app.delete('/admin/api/broadcasts/:id', adminAuth, (req, res) => {
 
 // ── COURSES ADMIN ──
 app.get('/admin/api/rides', adminAuth, (req, res) => {
-  const limit = parseInt(req.query.limit) || 100;
-  res.json(db.getAllRides(limit));
+  res.json(db.getAllRides());
 });
 
 app.get('/admin/api/users/:id/rides', adminAuth, (req, res) => {
-  const limit = parseInt(req.query.limit) || 50;
-  res.json(db.getUserRides(req.params.id, limit));
+  res.json(db.getUserRides(req.params.id));
 });
 
 // ── ANALYTICS ADMIN ──
