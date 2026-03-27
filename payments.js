@@ -117,32 +117,47 @@ function setupPaymentRoutes(app, db, requireAuth) {
 // ═══════════════════════════════════════
 
 async function handleStripeEvent(event, db) {
+  console.log(`[Stripe] Event reçu: ${event.type}`);
+
   switch (event.type) {
 
     case 'checkout.session.completed': {
       const session = event.data.object;
       const userId = session.metadata?.userId;
-      if (!userId) break;
+      if (!userId) { console.log('[Stripe] Pas de userId dans metadata'); break; }
 
       if (session.mode === 'subscription' && session.subscription) {
         const sub = await stripe.subscriptions.retrieve(session.subscription);
         const expiresAt = new Date(sub.current_period_end * 1000).toISOString();
         db.setStripeSubscription(userId, sub.id, 'premium', expiresAt);
-        console.log(`[Stripe] Abonnement activé pour user ${userId} jusqu'au ${expiresAt}`);
+        console.log(`[Stripe] ✅ Premium activé user=${userId} jusqu'au ${expiresAt}`);
+      } else if (session.mode === 'payment') {
+        // Lifetime
+        db.setStripeSubscription(userId, null, 'premium', null);
+        console.log(`[Stripe] ✅ Premium lifetime activé user=${userId}`);
       }
       break;
     }
 
-    case 'invoice.paid': {
+    // Ancienne API
+    case 'invoice.paid':
+    // Nouvelle API Stripe 2026
+    case 'invoice.payment_paid':
+    case 'invoice_payment.paid': {
       const invoice = event.data.object;
-      if (invoice.subscription) {
-        const sub = await stripe.subscriptions.retrieve(invoice.subscription);
-        const user = db.getUserByStripeCustomer(invoice.customer);
-        if (user) {
-          const expiresAt = new Date(sub.current_period_end * 1000).toISOString();
-          db.setStripeSubscription(user.id, sub.id, 'premium', expiresAt);
-          console.log(`[Stripe] Facture payée — user ${user.id} jusqu'au ${expiresAt}`);
+      const customerId = invoice.customer;
+      const user = db.getUserByStripeCustomer(customerId);
+      if (user) {
+        let expiresAt = null;
+        if (invoice.subscription) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(invoice.subscription);
+            expiresAt = new Date(sub.current_period_end * 1000).toISOString();
+          } catch(e) {}
         }
+        if (!expiresAt) expiresAt = new Date(Date.now() + 32*24*60*60*1000).toISOString();
+        db.setStripeSubscription(user.id, invoice.subscription || null, 'premium', expiresAt);
+        console.log(`[Stripe] ✅ Facture payée — user=${user.id} jusqu'au ${expiresAt}`);
       }
       break;
     }
@@ -154,13 +169,13 @@ async function handleStripeEvent(event, db) {
       const user = db.getUserByStripeCustomer(customerId);
       if (user) {
         db.setStripeSubscription(user.id, null, 'free', null);
-        console.log(`[Stripe] Abonnement annulé pour user ${user.id}`);
+        console.log(`[Stripe] ❌ Abonnement annulé pour user=${user.id}`);
       }
       break;
     }
 
     default:
-      // Événement ignoré
+      console.log(`[Stripe] Événement ignoré: ${event.type}`);
       break;
   }
 }
