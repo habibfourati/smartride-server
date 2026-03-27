@@ -79,12 +79,36 @@ db.exec(`
     value TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS analytics_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    event_type TEXT NOT NULL,
+    event_data TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS daily_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    app_opens INTEGER DEFAULT 0,
+    rides_accepted INTEGER DEFAULT 0,
+    analyses_done INTEGER DEFAULT 0,
+    results_viewed INTEGER DEFAULT 0,
+    UNIQUE(user_id, date),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
   CREATE INDEX IF NOT EXISTS idx_users_device ON users(device_id);
   CREATE INDEX IF NOT EXISTS idx_users_google ON users(google_id);
   CREATE INDEX IF NOT EXISTS idx_rides_user ON ride_calculations(user_id);
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id);
   CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+  CREATE INDEX IF NOT EXISTS idx_analytics_user ON analytics_events(user_id);
+  CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics_events(event_type);
+  CREATE INDEX IF NOT EXISTS idx_daily_user_date ON daily_usage(user_id, date);
 `);
 
 // Migrations pour les anciennes bases
@@ -110,6 +134,9 @@ initSetting.run('latest_app_version', '1.0');
 initSetting.run('admin_password', 'smartride2024');
 initSetting.run('analysis_month_limit', '6000');
 initSetting.run('free_access', 'true');
+initSetting.run('app_active', 'true');
+initSetting.run('app_redirect_url', 'https://smartride-ai.com');
+initSetting.run('app_kill_message', 'App désactivée. Téléchargez la nouvelle version.');
 
 console.log('[DB] Base initialisée');
 
@@ -448,6 +475,83 @@ function getGlobalStats() {
   };
 }
 
+// ═══════════════════════════════════════
+// ANALYTICS
+// ═══════════════════════════════════════
+
+function trackEvent(userId, eventType, eventData) {
+  db.prepare('INSERT INTO analytics_events (user_id, event_type, event_data) VALUES (?, ?, ?)')
+    .run(userId || null, eventType, eventData ? JSON.stringify(eventData) : null);
+}
+
+function incrementDailyUsage(userId, field) {
+  const today = new Date().toISOString().slice(0, 10);
+  db.prepare(`INSERT INTO daily_usage (user_id, date, ${field}) VALUES (?, ?, 1)
+    ON CONFLICT(user_id, date) DO UPDATE SET ${field} = ${field} + 1`).run(userId, today);
+}
+
+function getUserDailyUsage(userId, date) {
+  const d = date || new Date().toISOString().slice(0, 10);
+  return db.prepare('SELECT * FROM daily_usage WHERE user_id = ? AND date = ?').get(userId, d);
+}
+
+function getAnalyticsSummary() {
+  const today = new Date().toISOString().slice(0, 10);
+  const todayStats = db.prepare(`
+    SELECT COALESCE(SUM(app_opens),0) as total_opens,
+           COALESCE(SUM(rides_accepted),0) as total_rides_accepted,
+           COALESCE(SUM(analyses_done),0) as total_analyses,
+           COALESCE(SUM(results_viewed),0) as total_results_viewed,
+           COUNT(DISTINCT user_id) as active_users
+    FROM daily_usage WHERE date = ?
+  `).get(today);
+
+  const weekStats = db.prepare(`
+    SELECT COALESCE(SUM(app_opens),0) as total_opens,
+           COALESCE(SUM(rides_accepted),0) as total_rides_accepted,
+           COALESCE(SUM(analyses_done),0) as total_analyses,
+           COALESCE(SUM(results_viewed),0) as total_results_viewed,
+           COUNT(DISTINCT user_id) as active_users
+    FROM daily_usage WHERE date >= date('now', '-7 days')
+  `).get();
+
+  const last7days = db.prepare(`
+    SELECT date, SUM(app_opens) as opens, SUM(rides_accepted) as rides,
+           SUM(analyses_done) as analyses, COUNT(DISTINCT user_id) as users
+    FROM daily_usage WHERE date >= date('now', '-7 days')
+    GROUP BY date ORDER BY date
+  `).all();
+
+  return { today: todayStats, week: weekStats, last7days };
+}
+
+function getUserAnalytics(userId) {
+  const usage = db.prepare(`
+    SELECT date, app_opens, rides_accepted, analyses_done, results_viewed
+    FROM daily_usage WHERE user_id = ? ORDER BY date DESC LIMIT 30
+  `).all(userId);
+  const totals = db.prepare(`
+    SELECT COALESCE(SUM(app_opens),0) as total_opens,
+           COALESCE(SUM(rides_accepted),0) as total_rides_accepted,
+           COALESCE(SUM(analyses_done),0) as total_analyses,
+           COALESCE(SUM(results_viewed),0) as total_results_viewed
+    FROM daily_usage WHERE user_id = ?
+  `).get(userId);
+  return { usage, totals };
+}
+
+// ═══════════════════════════════════════
+// KILL SWITCH
+// ═══════════════════════════════════════
+
+function getKillSwitchStatus() {
+  return {
+    is_active: getSetting('app_active') !== 'false',
+    redirect_url: getSetting('app_redirect_url') || 'https://smartride-ai.com',
+    message: getSetting('app_kill_message') || 'App désactivée.'
+  };
+}
+
 module.exports = {
   getUserById, getUserByEmail, getUserByDeviceId, getAllUsers,
   createAccount, verifyEmailToken, createGoogleAccount, linkGoogleId,
@@ -461,5 +565,7 @@ module.exports = {
   saveRideCalculation, getUserRideStats,
   getSetting, setSetting, isMaintenanceMode,
   setHeartbeat, setHeartbeatByDevice, setOffline, setOfflineByDevice, getOnlineCount,
-  getMonthlyAnalysisCount, getGlobalStats
+  getMonthlyAnalysisCount, getGlobalStats,
+  trackEvent, incrementDailyUsage, getUserDailyUsage, getAnalyticsSummary, getUserAnalytics,
+  getKillSwitchStatus
 };

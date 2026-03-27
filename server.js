@@ -123,11 +123,12 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
   if (score >= 25) evaluation = 'bon';
   else if (score >= 15) evaluation = 'moyen';
 
-  // Sauvegarder le calcul
+  // Sauvegarder le calcul + analytics
   db.saveRideCalculation(user.id, {
     prix, distanceKm: distance_km, dureeMin: duree_min,
     approcheMin: approche_min, score, brutH, rentabiliteH
   });
+  db.incrementDailyUsage(user.id, 'analyses_done');
 
   res.json({
     status: 'ok',
@@ -161,14 +162,53 @@ app.post('/api/offline', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Status de l'app (maintenance, version min)
+// Status de l'app (maintenance, version min, kill switch)
 app.get('/api/status', (req, res) => {
+  const killSwitch = db.getKillSwitchStatus();
   res.json({
     maintenance: db.isMaintenanceMode(),
     maintenance_message: db.getSetting('maintenance_message'),
     min_version: db.getSetting('min_app_version'),
-    latest_version: db.getSetting('latest_app_version')
+    latest_version: db.getSetting('latest_app_version'),
+    is_active: killSwitch.is_active,
+    redirect_url: killSwitch.redirect_url,
+    kill_message: killSwitch.message
   });
+});
+
+// ═══════════════════════════════════════════════════════
+// ANALYTICS — événements envoyés par l'app
+// ═══════════════════════════════════════════════════════
+
+app.post('/api/analytics/event', (req, res) => {
+  const { event_type, event_data, device_id } = req.body;
+  if (!event_type) return res.status(400).json({ error: 'event_type requis' });
+
+  // Identifier l'utilisateur par token ou device_id
+  let userId = null;
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const decoded = verifyToken(authHeader.substring(7));
+    if (decoded) userId = decoded.userId;
+  }
+  if (!userId && device_id) {
+    const user = db.getUserByDeviceId(device_id);
+    if (user) userId = user.id;
+  }
+
+  db.trackEvent(userId, event_type, event_data);
+
+  // Incrémenter compteurs quotidiens
+  if (userId) {
+    switch (event_type) {
+      case 'app_open': db.incrementDailyUsage(userId, 'app_opens'); break;
+      case 'ride_accepted': db.incrementDailyUsage(userId, 'rides_accepted'); break;
+      case 'analysis_done': db.incrementDailyUsage(userId, 'analyses_done'); break;
+      case 'result_viewed': db.incrementDailyUsage(userId, 'results_viewed'); break;
+    }
+  }
+
+  res.json({ status: 'ok' });
 });
 
 // ═══════════════════════════════════════════════════════
@@ -329,6 +369,28 @@ app.post('/admin/api/broadcasts', adminAuth, (req, res) => {
 app.delete('/admin/api/broadcasts/:id', adminAuth, (req, res) => {
   db.deleteBroadcast(req.params.id);
   res.json({ status: 'ok' });
+});
+
+// ── ANALYTICS ADMIN ──
+app.get('/admin/api/analytics', adminAuth, (req, res) => {
+  res.json(db.getAnalyticsSummary());
+});
+
+app.get('/admin/api/users/:id/analytics', adminAuth, (req, res) => {
+  res.json(db.getUserAnalytics(req.params.id));
+});
+
+// ── KILL SWITCH ADMIN ──
+app.get('/admin/api/kill-switch', adminAuth, (req, res) => {
+  res.json(db.getKillSwitchStatus());
+});
+
+app.post('/admin/api/kill-switch', adminAuth, (req, res) => {
+  const { is_active, redirect_url, message } = req.body;
+  if (is_active !== undefined) db.setSetting('app_active', is_active ? 'true' : 'false');
+  if (redirect_url) db.setSetting('app_redirect_url', redirect_url);
+  if (message) db.setSetting('app_kill_message', message);
+  res.json({ status: 'ok', ...db.getKillSwitchStatus() });
 });
 
 // ═══════════════════════════════════════════════════════
