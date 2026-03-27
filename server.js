@@ -148,7 +148,7 @@ app.post('/api/heartbeat', (req, res) => {
   if (db.isMaintenanceMode()) {
     return res.json({ status: 'maintenance', message: db.getSetting('maintenance_message') });
   }
-  db.setHeartbeat(device_id);
+  db.setHeartbeatByDevice(device_id);
   res.json({ status: 'ok' });
 });
 
@@ -156,7 +156,7 @@ app.post('/api/heartbeat', (req, res) => {
 app.post('/api/offline', (req, res) => {
   const { device_id } = req.body;
   if (!device_id) return res.status(400).json({ error: 'device_id requis' });
-  db.setOffline(device_id);
+  db.setOfflineByDevice(device_id);
   res.json({ status: 'ok' });
 });
 
@@ -271,6 +271,49 @@ app.post('/admin/api/version', adminAuth, (req, res) => {
   const { min_version, latest_version } = req.body;
   if (min_version) db.setSetting('min_app_version', min_version);
   if (latest_version) db.setSetting('latest_app_version', latest_version);
+  res.json({ status: 'ok' });
+});
+
+// Reset device_id d'un utilisateur
+app.post('/admin/api/users/:id/reset-device', adminAuth, (req, res) => {
+  db.resetDeviceId(req.params.id);
+  res.json({ status: 'ok' });
+});
+
+// ── FLAGS FREE_ACCESS / PAYMENT_ENABLED ──
+app.get('/admin/api/flags', adminAuth, (req, res) => {
+  res.json({
+    free_access: db.getSetting('free_access') === 'true',
+    payment_enabled: db.getSetting('payment_enabled') === 'true'
+  });
+});
+
+app.post('/admin/api/flags', adminAuth, (req, res) => {
+  const { free_access, payment_enabled } = req.body;
+  if (free_access !== undefined) db.setSetting('free_access', free_access ? 'true' : 'false');
+  if (payment_enabled !== undefined) db.setSetting('payment_enabled', payment_enabled ? 'true' : 'false');
+  res.json({ status: 'ok', free_access: db.getSetting('free_access') === 'true', payment_enabled: db.getSetting('payment_enabled') === 'true' });
+});
+
+// ── MESSAGES / CONTACT ──
+app.get('/admin/api/messages', adminAuth, (req, res) => {
+  res.json(db.getAllMessages());
+});
+
+app.post('/admin/api/messages/:id/read', adminAuth, (req, res) => {
+  db.markMessageRead(req.params.id);
+  res.json({ status: 'ok' });
+});
+
+app.post('/admin/api/messages/:id/reply', adminAuth, (req, res) => {
+  const { reply } = req.body;
+  if (!reply) return res.status(400).json({ error: 'Réponse requise' });
+  db.replyMessage(req.params.id, reply);
+  res.json({ status: 'ok' });
+});
+
+app.delete('/admin/api/messages/:id', adminAuth, (req, res) => {
+  db.deleteMessage(req.params.id);
   res.json({ status: 'ok' });
 });
 

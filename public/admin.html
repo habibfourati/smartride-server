@@ -8,7 +8,6 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1923; color: #b0bec5; min-height: 100vh; }
 
-    /* Login */
     #loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
     .login-box { background: #1a2634; padding: 40px; border-radius: 16px; text-align: center; width: 360px; }
     .login-box h1 { color: #4CAF50; font-size: 24px; margin-bottom: 8px; }
@@ -16,535 +15,444 @@
     .login-box input { width: 100%; padding: 12px 16px; background: #0f1923; border: 1px solid #263238; border-radius: 8px; color: #fff; font-size: 16px; margin-bottom: 16px; outline: none; }
     .login-box input:focus { border-color: #4CAF50; }
     .login-box button { width: 100%; padding: 12px; background: #4CAF50; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
-    .login-box button:hover { background: #43a047; }
     .login-error { color: #ef5350; font-size: 13px; margin-bottom: 12px; display: none; }
 
-    /* Dashboard */
     #dashboard { display: none; }
     .header { background: #1a2634; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #263238; }
     .header h1 { color: #4CAF50; font-size: 20px; }
     .header .logout { color: #ef5350; cursor: pointer; font-size: 14px; }
-    .header .logout:hover { text-decoration: underline; }
 
-    /* Nav tabs */
-    .nav { display: flex; background: #1a2634; border-bottom: 1px solid #263238; }
-    .nav-btn { flex: 1; padding: 12px; text-align: center; color: #546e7a; cursor: pointer; font-size: 14px; font-weight: 500; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .nav { display: flex; background: #1a2634; border-bottom: 1px solid #263238; flex-wrap: wrap; }
+    .nav-btn { flex: 1; padding: 12px; text-align: center; color: #546e7a; cursor: pointer; font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent; min-width: 100px; }
     .nav-btn.active { color: #4CAF50; border-bottom-color: #4CAF50; }
-    .nav-btn:hover { color: #81c784; }
+    .nav-btn .badge { background: #ef5350; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 4px; }
 
-    /* Content */
     .content { padding: 24px; max-width: 1200px; margin: 0 auto; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Stats cards */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .stat-card { background: #1a2634; border-radius: 12px; padding: 20px; text-align: center; }
-    .stat-card .number { font-size: 32px; font-weight: 700; color: #fff; }
-    .stat-card .label { font-size: 13px; color: #546e7a; margin-top: 4px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat-card { background: #1a2634; border-radius: 12px; padding: 16px; text-align: center; }
+    .stat-card .number { font-size: 28px; font-weight: 700; color: #fff; }
+    .stat-card .label { font-size: 12px; color: #546e7a; margin-top: 4px; }
     .stat-card.green .number { color: #4CAF50; }
     .stat-card.orange .number { color: #FFA726; }
     .stat-card.red .number { color: #ef5350; }
     .stat-card.blue .number { color: #42a5f5; }
+    .online-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4CAF50; margin-right: 4px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    /* Table */
-    .table-container { background: #1a2634; border-radius: 12px; overflow: hidden; }
-    .table-header { padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #263238; }
-    .table-header h2 { font-size: 16px; color: #fff; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; padding: 12px 16px; color: #546e7a; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #263238; }
-    td { padding: 12px 16px; border-bottom: 1px solid #1e2d3d; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; background: #1a2634; border-radius: 12px; overflow: hidden; }
+    th { background: #263238; color: #4CAF50; text-align: left; padding: 10px 12px; font-size: 12px; text-transform: uppercase; }
+    td { padding: 10px 12px; border-bottom: 1px solid #1e2d3d; font-size: 13px; }
     tr:hover { background: #1e2d3d; }
-    .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-    .badge-free { background: #263238; color: #78909c; }
-    .badge-premium { background: #1b3a1b; color: #4CAF50; }
-    .badge-banned { background: #3a1b1b; color: #ef5350; }
 
-    /* Buttons */
-    .btn { padding: 6px 14px; border-radius: 6px; border: none; font-size: 13px; cursor: pointer; font-weight: 500; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-free { background: #263238; color: #90a4ae; }
+    .badge-premium { background: #1b5e20; color: #69f0ae; }
+    .badge-banned { background: #b71c1c; color: #ef9a9a; }
+    .badge-new { background: #1565c0; color: #90caf9; }
+    .badge-read { background: #263238; color: #90a4ae; }
+    .badge-replied { background: #1b5e20; color: #69f0ae; }
+
+    .btn { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; }
     .btn-green { background: #4CAF50; color: #fff; }
-    .btn-green:hover { background: #43a047; }
     .btn-red { background: #ef5350; color: #fff; }
-    .btn-red:hover { background: #e53935; }
-    .btn-orange { background: #FFA726; color: #fff; }
-    .btn-orange:hover { background: #f57c00; }
     .btn-blue { background: #42a5f5; color: #fff; }
-    .btn-blue:hover { background: #1e88e5; }
-    .btn-small { padding: 4px 10px; font-size: 12px; }
+    .btn-gray { background: #37474f; color: #b0bec5; }
+    .btn:hover { opacity: 0.85; }
 
-    /* Actions */
-    .actions { display: flex; gap: 6px; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
-    /* Settings */
-    .setting-group { background: #1a2634; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-    .setting-group h3 { color: #fff; font-size: 16px; margin-bottom: 16px; }
-    .setting-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .setting-row label { width: 200px; font-size: 14px; }
-    .setting-row input, .setting-row select { padding: 8px 12px; background: #0f1923; border: 1px solid #263238; border-radius: 6px; color: #fff; font-size: 14px; flex: 1; outline: none; }
-    .setting-row input:focus { border-color: #4CAF50; }
+    .setting-row { display: flex; align-items: center; gap: 16px; padding: 16px; background: #1a2634; border-radius: 8px; margin-bottom: 12px; }
+    .setting-row label { flex: 1; color: #b0bec5; font-size: 14px; }
+    .setting-row input[type="text"], .setting-row input[type="number"], .setting-row input[type="password"] {
+      padding: 8px 12px; background: #0f1923; border: 1px solid #263238; border-radius: 6px; color: #fff; font-size: 14px; width: 200px;
+    }
 
-    /* Toggle switch */
     .toggle { position: relative; width: 48px; height: 26px; }
     .toggle input { opacity: 0; width: 0; height: 0; }
-    .toggle .slider { position: absolute; cursor: pointer; inset: 0; background: #263238; border-radius: 13px; transition: 0.3s; }
-    .toggle .slider:before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+    .toggle .slider { position: absolute; inset: 0; background: #37474f; border-radius: 13px; cursor: pointer; transition: .3s; }
+    .toggle .slider::before { content: ''; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; left: 3px; top: 3px; transition: .3s; }
     .toggle input:checked + .slider { background: #4CAF50; }
-    .toggle input:checked + .slider:before { transform: translateX(22px); }
+    .toggle input:checked + .slider::before { transform: translateX(22px); }
 
-    /* License keys */
-    .key-code { font-family: 'Courier New', monospace; background: #0f1923; padding: 4px 8px; border-radius: 4px; color: #4CAF50; font-size: 13px; }
-    .key-used { color: #78909c; }
+    .msg-card { background: #1a2634; border-radius: 12px; padding: 20px; margin-bottom: 12px; border-left: 3px solid #42a5f5; }
+    .msg-card.read { border-left-color: #37474f; }
+    .msg-card.replied { border-left-color: #4CAF50; }
+    .msg-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .msg-from { color: #fff; font-weight: 600; font-size: 14px; }
+    .msg-date { color: #546e7a; font-size: 12px; }
+    .msg-subject { color: #FFA726; font-size: 13px; margin-bottom: 6px; }
+    .msg-body { color: #b0bec5; font-size: 14px; line-height: 1.5; margin-bottom: 12px; }
+    .msg-reply { color: #69f0ae; font-size: 13px; background: #1b3320; padding: 10px; border-radius: 6px; margin-top: 8px; }
+    .reply-input { width: 100%; padding: 10px; background: #0f1923; border: 1px solid #263238; border-radius: 6px; color: #fff; font-size: 14px; resize: vertical; min-height: 60px; margin-top: 8px; }
 
-    /* Generate form */
-    .generate-form { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-    .generate-form input, .generate-form select { padding: 8px 12px; background: #0f1923; border: 1px solid #263238; border-radius: 6px; color: #fff; font-size: 14px; outline: none; }
-
-    /* Refresh button */
-    .refresh-btn { background: none; border: 1px solid #263238; color: #78909c; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-    .refresh-btn:hover { border-color: #4CAF50; color: #4CAF50; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.8); }
-    }
-
-    @media (max-width: 768px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .setting-row { flex-direction: column; align-items: flex-start; }
-      .setting-row label { width: auto; }
-      .generate-form { flex-direction: column; }
-    }
+    .section-title { color: #fff; font-size: 18px; margin-bottom: 16px; }
+    .flag-row { display: flex; align-items: center; justify-content: space-between; padding: 20px; background: #1a2634; border-radius: 12px; margin-bottom: 12px; }
+    .flag-info h3 { color: #fff; font-size: 15px; }
+    .flag-info p { color: #546e7a; font-size: 12px; margin-top: 2px; }
   </style>
 </head>
 <body>
 
-<!-- ═══════════ LOGIN ═══════════ -->
+<!-- LOGIN -->
 <div id="loginScreen">
   <div class="login-box">
     <h1>SmartRide AI</h1>
-    <p>Panneau d'administration</p>
-    <div id="loginError" class="login-error">Mot de passe incorrect</div>
+    <p>Panel Administrateur</p>
+    <div class="login-error" id="loginError">Mot de passe incorrect</div>
     <input type="password" id="loginPassword" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')login()">
-    <button onclick="login()">Connexion</button>
+    <button onclick="login()">Se connecter</button>
   </div>
 </div>
 
-<!-- ═══════════ DASHBOARD ═══════════ -->
+<!-- DASHBOARD -->
 <div id="dashboard">
   <div class="header">
-    <h1>SmartRide AI Admin</h1>
+    <h1>SmartRide AI — Admin</h1>
     <span class="logout" onclick="logout()">Déconnexion</span>
   </div>
 
   <div class="nav">
-    <div class="nav-btn active" data-tab="overview" onclick="showTab('overview')">Vue d'ensemble</div>
-    <div class="nav-btn" data-tab="users" onclick="showTab('users')">Utilisateurs</div>
-    <div class="nav-btn" data-tab="licenses" onclick="showTab('licenses')">Licences</div>
-    <div class="nav-btn" data-tab="settings" onclick="showTab('settings')">Paramètres</div>
+    <div class="nav-btn active" onclick="showTab('overview')">Vue d'ensemble</div>
+    <div class="nav-btn" onclick="showTab('users')">Utilisateurs</div>
+    <div class="nav-btn" onclick="showTab('messages')">Messages <span class="badge" id="msgBadge" style="display:none">0</span></div>
+    <div class="nav-btn" onclick="showTab('access')">Accès</div>
+    <div class="nav-btn" onclick="showTab('settings')">Paramètres</div>
   </div>
 
   <div class="content">
 
-    <!-- TAB: Vue d'ensemble -->
-    <div id="tab-overview" class="tab-content active">
-      <div class="stats-grid" id="statsGrid"></div>
+    <!-- TAB: VUE D'ENSEMBLE -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="stats-grid">
+        <div class="stat-card green"><div class="number"><span class="online-dot"></span><span id="onlineNowCount">0</span></div><div class="label">En ligne</div></div>
+        <div class="stat-card blue"><div class="number" id="totalUsers">0</div><div class="label">Utilisateurs</div></div>
+        <div class="stat-card green"><div class="number" id="premiumUsers">0</div><div class="label">Premium</div></div>
+        <div class="stat-card red"><div class="number" id="bannedUsers">0</div><div class="label">Bannis</div></div>
+        <div class="stat-card orange"><div class="number" id="activeToday">0</div><div class="label">Actifs aujourd'hui</div></div>
+        <div class="stat-card"><div class="number" id="totalRides">0</div><div class="label">Analyses totales</div></div>
+        <div class="stat-card" id="monthlyCard"><div class="number" id="monthlyAnalyses">0</div><div class="label">Analyses ce mois</div></div>
+        <div class="stat-card blue"><div class="number" id="unreadMsg">0</div><div class="label">Messages non lus</div></div>
+      </div>
+
+      <div class="flag-row">
+        <div class="flag-info">
+          <h3>Accès Gratuit : <span id="flagFreeStatus" style="color:#4CAF50">ACTIVÉ</span></h3>
+          <p>Les utilisateurs FREE peuvent utiliser l'app</p>
+        </div>
+      </div>
+      <div class="flag-row">
+        <div class="flag-info">
+          <h3>Paiement : <span id="flagPayStatus" style="color:#ef5350">DÉSACTIVÉ</span></h3>
+          <p>Les boutons de paiement sont visibles</p>
+        </div>
+      </div>
     </div>
 
-    <!-- TAB: Utilisateurs -->
-    <div id="tab-users" class="tab-content">
-      <div class="table-container">
-        <div class="table-header">
-          <h2>Utilisateurs</h2>
-          <button class="refresh-btn" onclick="loadUsers()">Actualiser</button>
+    <!-- TAB: UTILISATEURS -->
+    <div class="tab-content" id="tab-users">
+      <h2 class="section-title">Utilisateurs</h2>
+      <table>
+        <thead>
+          <tr><th>Email</th><th>Nom</th><th>Tél</th><th>Plan</th><th>Appareil</th><th>Inscrit</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="usersList"></tbody>
+      </table>
+    </div>
+
+    <!-- TAB: MESSAGES -->
+    <div class="tab-content" id="tab-messages">
+      <h2 class="section-title">Messages</h2>
+      <div id="messagesList"></div>
+    </div>
+
+    <!-- TAB: ACCÈS -->
+    <div class="tab-content" id="tab-access">
+      <h2 class="section-title">Contrôle d'accès</h2>
+
+      <div class="flag-row">
+        <div class="flag-info">
+          <h3>FREE_ACCESS</h3>
+          <p>Si activé, les utilisateurs gratuits ont accès à l'app</p>
         </div>
+        <label class="toggle">
+          <input type="checkbox" id="flagFreeAccess" onchange="saveFlags()">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="flag-row">
+        <div class="flag-info">
+          <h3>PAYMENT_ENABLED</h3>
+          <p>Si activé, les boutons de paiement et le paywall sont visibles</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="flagPaymentEnabled" onchange="saveFlags()">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div style="margin-top:24px;padding:20px;background:#1a2634;border-radius:12px">
+        <h3 style="color:#fff;margin-bottom:12px">Résumé</h3>
         <table>
-          <thead>
-            <tr>
-              <th>Nom</th>
-              <th>Email</th>
-              <th>Plan</th>
-              <th>Statut</th>
-              <th>Dernière activité</th>
-              <th>Expire le</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="usersTable"></tbody>
+          <thead><tr><th>Statut</th><th>FREE_ACCESS</th><th>PAYMENT_ENABLED</th><th>Résultat</th></tr></thead>
+          <tbody>
+            <tr><td>FREE</td><td>ON</td><td>OFF</td><td style="color:#4CAF50">Accès</td></tr>
+            <tr><td>FREE</td><td>OFF</td><td>ON</td><td style="color:#ef5350">Bloqué → Paywall</td></tr>
+            <tr><td>FREE</td><td>OFF</td><td>OFF</td><td style="color:#ef5350">Bloqué</td></tr>
+            <tr><td>PREMIUM</td><td>*</td><td>*</td><td style="color:#4CAF50">Toujours accès</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
 
-    <!-- TAB: Licences -->
-    <div id="tab-licenses" class="tab-content">
-      <div class="setting-group">
-        <h3>Générer des clés</h3>
-        <div class="generate-form">
-          <select id="genPlan">
-            <option value="premium">Premium</option>
-          </select>
-          <input type="number" id="genDays" value="30" min="1" placeholder="Jours" style="width:100px">
-          <input type="number" id="genCount" value="1" min="1" max="50" placeholder="Quantité" style="width:100px">
-          <button class="btn btn-green" onclick="generateKeys()">Générer</button>
-        </div>
-        <div id="generatedKeys" style="margin-top:12px"></div>
+    <!-- TAB: PARAMÈTRES -->
+    <div class="tab-content" id="tab-settings">
+      <h2 class="section-title">Paramètres</h2>
+
+      <div class="setting-row">
+        <label>Maintenance</label>
+        <label class="toggle">
+          <input type="checkbox" id="maintenanceToggle" onchange="saveMaintenance()">
+          <span class="slider"></span>
+        </label>
       </div>
 
-      <div class="table-container">
-        <div class="table-header">
-          <h2>Toutes les clés</h2>
-          <button class="refresh-btn" onclick="loadLicenses()">Actualiser</button>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Clé</th>
-              <th>Plan</th>
-              <th>Durée</th>
-              <th>Statut</th>
-              <th>Utilisé par</th>
-              <th>Date création</th>
-            </tr>
-          </thead>
-          <tbody id="licensesTable"></tbody>
-        </table>
+      <div class="setting-row">
+        <label>Message maintenance</label>
+        <input type="text" id="maintenanceMsg" style="flex:1">
+        <button class="btn btn-green" onclick="saveMaintenance()">Sauver</button>
+      </div>
+
+      <div class="setting-row">
+        <label>Limite analyses/mois</label>
+        <input type="number" id="analysisLimit" min="1">
+        <button class="btn btn-green" onclick="saveAnalysisLimit()">Sauver</button>
+      </div>
+
+      <div class="setting-row">
+        <label>Mot de passe admin</label>
+        <input type="password" id="newAdminPwd" placeholder="Nouveau mot de passe">
+        <button class="btn btn-green" onclick="changeAdminPwd()">Changer</button>
       </div>
     </div>
-
-    <!-- TAB: Paramètres -->
-    <div id="tab-settings" class="tab-content">
-      <div class="setting-group">
-        <h3>Mode maintenance</h3>
-        <div class="setting-row">
-          <label>Activer la maintenance</label>
-          <label class="toggle">
-            <input type="checkbox" id="maintenanceToggle" onchange="toggleMaintenance()">
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div class="setting-row">
-          <label>Message de maintenance</label>
-          <input type="text" id="maintenanceMsg" value="SmartRide AI est en maintenance.">
-        </div>
-        <button class="btn btn-green" onclick="saveMaintenance()">Sauvegarder</button>
-      </div>
-
-      <div class="setting-group">
-        <h3>Versions de l'application</h3>
-        <div class="setting-row">
-          <label>Version minimum requise</label>
-          <input type="text" id="minVersion" value="1.0">
-        </div>
-        <div class="setting-row">
-          <label>Dernière version</label>
-          <input type="text" id="latestVersion" value="1.0">
-        </div>
-        <button class="btn btn-green" onclick="saveVersions()">Sauvegarder</button>
-      </div>
-
-      <div class="setting-group">
-        <h3>Limite globale d'analyses</h3>
-        <div class="setting-row">
-          <label>Analyses max ce mois (tous users)</label>
-          <input type="number" id="analysisLimit" min="1" placeholder="ex: 6000">
-        </div>
-        <div id="analysisLimitInfo" style="color:#546e7a;font-size:13px;margin-bottom:12px"></div>
-        <button class="btn btn-green" onclick="saveAnalysisLimit()">Sauvegarder</button>
-      </div>
-
-      <div class="setting-group">
-        <h3>Changer le mot de passe admin</h3>
-        <div class="setting-row">
-          <label>Nouveau mot de passe</label>
-          <input type="password" id="newPassword" placeholder="Min 6 caractères">
-        </div>
-        <button class="btn btn-orange" onclick="changePassword()">Changer</button>
-      </div>
-    </div>
-
   </div>
 </div>
 
 <script>
-  let adminPassword = '';
-  const API = window.location.origin;
+let adminPwd = '';
 
-  // ═══════ AUTH ═══════
-  async function login() {
-    const pwd = document.getElementById('loginPassword').value;
-    try {
-      const res = await fetch(API + '/admin/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pwd })
-      });
-      if (res.ok) {
-        adminPassword = pwd;
-        document.getElementById('loginScreen').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-        loadOverview();
-        startAutoRefresh();
-      } else {
-        document.getElementById('loginError').style.display = 'block';
-      }
-    } catch(e) { alert('Erreur de connexion au serveur'); }
+// ── LOGIN ──
+async function login() {
+  const pwd = document.getElementById('loginPassword').value;
+  const res = await fetch('/admin/api/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pwd })
+  });
+  if (res.ok) {
+    adminPwd = pwd;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadAll();
+    setInterval(refreshOnline, 5000);
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+function logout() {
+  adminPwd = '';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+
+function api(path, opts = {}) {
+  return fetch(path, { ...opts, headers: { ...opts.headers, 'Content-Type': 'application/json', 'x-admin-password': adminPwd } });
+}
+
+// ── TABS ──
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'users') loadUsers();
+  if (name === 'messages') loadMessages();
+  if (name === 'access') loadFlags();
+  if (name === 'settings') loadSettings();
+}
+
+// ── LOAD ALL ──
+async function loadAll() {
+  const res = await api('/admin/api/stats');
+  const s = await res.json();
+  document.getElementById('onlineNowCount').textContent = s.onlineNow;
+  document.getElementById('totalUsers').textContent = s.totalUsers;
+  document.getElementById('premiumUsers').textContent = s.premiumUsers;
+  document.getElementById('bannedUsers').textContent = s.bannedUsers;
+  document.getElementById('activeToday').textContent = s.activeToday;
+  document.getElementById('totalRides').textContent = s.totalRides;
+  document.getElementById('monthlyAnalyses').textContent = s.monthlyAnalyses + ' / ' + s.analysisMonthLimit;
+  document.getElementById('unreadMsg').textContent = s.unreadMessages;
+
+  // Badge messages
+  if (s.unreadMessages > 0) {
+    document.getElementById('msgBadge').textContent = s.unreadMessages;
+    document.getElementById('msgBadge').style.display = 'inline';
+  } else {
+    document.getElementById('msgBadge').style.display = 'none';
   }
 
-  function logout() {
-    stopAutoRefresh();
-    adminPassword = '';
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('dashboard').style.display = 'none';
-    document.getElementById('loginPassword').value = '';
-    document.getElementById('loginError').style.display = 'none';
-  }
+  // Flags overview
+  document.getElementById('flagFreeStatus').textContent = s.freeAccess ? 'ACTIVÉ' : 'DÉSACTIVÉ';
+  document.getElementById('flagFreeStatus').style.color = s.freeAccess ? '#4CAF50' : '#ef5350';
+  document.getElementById('flagPayStatus').textContent = s.paymentEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ';
+  document.getElementById('flagPayStatus').style.color = s.paymentEnabled ? '#4CAF50' : '#ef5350';
 
-  function authHeaders() {
-    return { 'Content-Type': 'application/json', 'X-Admin-Password': adminPassword };
-  }
+  // Monthly color
+  const pct = s.monthlyAnalyses / s.analysisMonthLimit;
+  const mc = document.getElementById('monthlyCard');
+  mc.className = 'stat-card ' + (pct >= 0.9 ? 'red' : pct >= 0.7 ? 'orange' : 'green');
+}
 
-  // ═══════ AUTO-REFRESH ═══════
-  let autoRefreshInterval = null;
+async function refreshOnline() {
+  try {
+    const res = await api('/admin/api/online');
+    const d = await res.json();
+    document.getElementById('onlineNowCount').textContent = d.onlineNow;
+  } catch(_) {}
+}
 
-  function startAutoRefresh() {
-    stopAutoRefresh();
-    autoRefreshInterval = setInterval(async () => {
-      try {
-        const res = await fetch(API + '/admin/api/online', { headers: authHeaders() });
-        const data = await res.json();
-        const el = document.getElementById('onlineNowCount');
-        if (el) el.textContent = data.onlineNow;
-      } catch(_) {}
-    }, 5000); // toutes les 5 secondes
-  }
+// ── USERS ──
+async function loadUsers() {
+  const res = await api('/admin/api/users');
+  const users = await res.json();
+  const tbody = document.getElementById('usersList');
+  tbody.innerHTML = users.map(u => {
+    const plan = u.banned ? '<span class="badge badge-banned">Banni</span>'
+      : u.plan === 'premium' ? '<span class="badge badge-premium">Premium</span>'
+      : '<span class="badge badge-free">Free</span>';
+    const device = u.device_id ? u.device_id.substring(0, 12) + '...' : '<span style="color:#546e7a">Aucun</span>';
+    const date = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '';
+    return `<tr>
+      <td>${u.email || ''}</td>
+      <td>${u.name || ''}</td>
+      <td>${u.phone || ''}</td>
+      <td>${plan}</td>
+      <td style="font-size:11px">${device}</td>
+      <td>${date}</td>
+      <td class="actions">
+        ${u.banned
+          ? `<button class="btn btn-green" onclick="unbanUser('${u.id}')">Débannir</button>`
+          : `<button class="btn btn-red" onclick="banUser('${u.id}')">Bannir</button>`}
+        ${u.plan !== 'premium'
+          ? `<button class="btn btn-green" onclick="setPlan('${u.id}','premium')">→ Premium</button>`
+          : `<button class="btn btn-gray" onclick="setPlan('${u.id}','free')">→ Free</button>`}
+        ${u.device_id ? `<button class="btn btn-blue" onclick="resetDevice('${u.id}')">Reset appareil</button>` : ''}
+        <button class="btn btn-red" onclick="deleteUser('${u.id}')">Supprimer</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
 
-  function stopAutoRefresh() {
-    if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
-  }
+async function banUser(id) { await api(`/admin/api/users/${id}/ban`, { method: 'POST', body: '{"reason":"Banni par admin"}' }); loadUsers(); loadAll(); }
+async function unbanUser(id) { await api(`/admin/api/users/${id}/unban`, { method: 'POST' }); loadUsers(); loadAll(); }
+async function setPlan(id, plan) { await api(`/admin/api/users/${id}/plan`, { method: 'POST', body: JSON.stringify({ plan }) }); loadUsers(); loadAll(); }
+async function resetDevice(id) { if(!confirm('Reset appareil ? L\'utilisateur pourra se connecter depuis un autre téléphone.')) return; await api(`/admin/api/users/${id}/reset-device`, { method: 'POST' }); loadUsers(); }
+async function deleteUser(id) { if(!confirm('Supprimer cet utilisateur ?')) return; await api(`/admin/api/users/${id}`, { method: 'DELETE' }); loadUsers(); loadAll(); }
 
-  // ═══════ NAVIGATION ═══════
-  function showTab(name) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
-    document.querySelector(`.nav-btn[data-tab="${name}"]`).classList.add('active');
-
-    if (name === 'overview') loadOverview();
-    else if (name === 'users') loadUsers();
-    else if (name === 'licenses') loadLicenses();
-    else if (name === 'settings') loadSettings();
-  }
-
-  // ═══════ OVERVIEW ═══════
-  async function loadOverview() {
-    const res = await fetch(API + '/admin/api/stats', { headers: authHeaders() });
-    const stats = await res.json();
-    const analysisPct = stats.analysisMonthLimit > 0 ? Math.round(stats.monthlyAnalyses * 100 / stats.analysisMonthLimit) : 0;
-    const analysisColor = analysisPct >= 90 ? 'red' : analysisPct >= 70 ? 'orange' : 'green';
-    document.getElementById('statsGrid').innerHTML = `
-      <div class="stat-card blue"><div class="number">${stats.totalUsers}</div><div class="label">Utilisateurs total</div></div>
-      <div class="stat-card green"><div class="number">${stats.premiumUsers}</div><div class="label">Premium actifs</div></div>
-      <div class="stat-card red"><div class="number">${stats.bannedUsers}</div><div class="label">Bannis</div></div>
-      <div class="stat-card orange"><div class="number">${stats.activeToday}</div><div class="label">Actifs aujourd'hui</div></div>
-      <div class="stat-card blue"><div class="number">${stats.activeWeek}</div><div class="label">Actifs cette semaine</div></div>
-      <div class="stat-card green"><div class="number">${stats.totalRides}</div><div class="label">Calculs effectués</div></div>
-      <div class="stat-card green">
-        <div class="number" style="display:flex;align-items:center;justify-content:center;gap:8px">
-          <span style="width:12px;height:12px;background:#4CAF50;border-radius:50%;display:inline-block;animation:pulse 1.5s infinite"></span>
-          <span id="onlineNowCount">${stats.onlineNow}</span>
-        </div>
-        <div class="label">En ligne maintenant</div>
+// ── MESSAGES ──
+async function loadMessages() {
+  const res = await api('/admin/api/messages');
+  const msgs = await res.json();
+  const div = document.getElementById('messagesList');
+  if (msgs.length === 0) { div.innerHTML = '<p style="color:#546e7a">Aucun message</p>'; return; }
+  div.innerHTML = msgs.map(m => {
+    const cls = m.status === 'REPLIED' ? 'replied' : m.status === 'READ' ? 'read' : '';
+    const badge = m.status === 'NEW' ? 'badge-new' : m.status === 'REPLIED' ? 'badge-replied' : 'badge-read';
+    return `<div class="msg-card ${cls}">
+      <div class="msg-header">
+        <span class="msg-from">${m.user_name || m.user_email || m.email || 'Inconnu'} <span class="badge ${badge}">${m.status}</span></span>
+        <span class="msg-date">${m.created_at ? new Date(m.created_at).toLocaleString('fr-FR') : ''}</span>
       </div>
-      <div class="stat-card ${analysisColor}" style="grid-column: span 2">
-        <div class="number">${stats.monthlyAnalyses} <span style="font-size:18px;color:#546e7a">/ ${stats.analysisMonthLimit}</span></div>
-        <div class="label">Analyses ce mois (${analysisPct}% de la limite)</div>
+      ${m.subject ? `<div class="msg-subject">${m.subject}</div>` : ''}
+      <div class="msg-body">${m.message}</div>
+      ${m.admin_reply ? `<div class="msg-reply"><strong>Réponse :</strong> ${m.admin_reply}</div>` : ''}
+      <div class="actions" style="margin-top:8px">
+        ${m.status === 'NEW' ? `<button class="btn btn-blue" onclick="markRead('${m.id}')">Marquer lu</button>` : ''}
+        ${m.status !== 'REPLIED' ? `<button class="btn btn-green" onclick="showReply('${m.id}')">Répondre</button>` : ''}
+        <button class="btn btn-red" onclick="deleteMsg('${m.id}')">Supprimer</button>
       </div>
-    `;
-  }
+      <div id="reply-${m.id}" style="display:none">
+        <textarea class="reply-input" id="replyText-${m.id}" placeholder="Votre réponse..."></textarea>
+        <button class="btn btn-green" onclick="sendReply('${m.id}')" style="margin-top:6px">Envoyer</button>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-  // ═══════ USERS ═══════
-  async function loadUsers() {
-    const res = await fetch(API + '/admin/api/users', { headers: authHeaders() });
-    const users = await res.json();
-    const tbody = document.getElementById('usersTable');
-    tbody.innerHTML = users.map(u => {
-      const planBadge = u.plan === 'premium'
-        ? '<span class="badge badge-premium">Premium</span>'
-        : '<span class="badge badge-free">Gratuit</span>';
-      const statusBadge = u.banned
-        ? '<span class="badge badge-banned">Banni</span>'
-        : '<span class="badge badge-free">Actif</span>';
-      const expires = u.expires_at ? new Date(u.expires_at).toLocaleDateString('fr-FR') : '--';
-      const lastSeen = u.last_seen ? timeAgo(u.last_seen) : '--';
-      const banBtn = u.banned
-        ? `<button class="btn btn-green btn-small" onclick="unbanUser('${u.id}')">Débannir</button>`
-        : `<button class="btn btn-red btn-small" onclick="banUser('${u.id}')">Bannir</button>`;
-      const premBtn = u.plan === 'premium'
-        ? `<button class="btn btn-orange btn-small" onclick="setPlan('${u.id}','free')">→ Free</button>`
-        : `<button class="btn btn-green btn-small" onclick="setPlanPremium('${u.id}')">→ Premium</button>`;
+function showReply(id) { document.getElementById('reply-' + id).style.display = 'block'; }
+async function markRead(id) { await api(`/admin/api/messages/${id}/read`, { method: 'POST' }); loadMessages(); loadAll(); }
+async function sendReply(id) {
+  const reply = document.getElementById('replyText-' + id).value;
+  if (!reply) return;
+  await api(`/admin/api/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) });
+  loadMessages(); loadAll();
+}
+async function deleteMsg(id) { if(!confirm('Supprimer ce message ?')) return; await api(`/admin/api/messages/${id}`, { method: 'DELETE' }); loadMessages(); loadAll(); }
 
-      return `<tr>
-        <td>${u.name || '--'}</td>
-        <td>${u.email || '--'}</td>
-        <td>${planBadge}</td>
-        <td>${statusBadge}</td>
-        <td>${lastSeen}</td>
-        <td>${expires}</td>
-        <td class="actions">${banBtn} ${premBtn} <button class="btn btn-red btn-small" onclick="deleteUser('${u.id}')">Suppr</button></td>
-      </tr>`;
-    }).join('');
-  }
+// ── FLAGS ──
+async function loadFlags() {
+  const res = await api('/admin/api/flags');
+  const d = await res.json();
+  document.getElementById('flagFreeAccess').checked = d.free_access;
+  document.getElementById('flagPaymentEnabled').checked = d.payment_enabled;
+}
 
-  async function banUser(id) {
-    const reason = prompt('Raison du ban :');
-    if (reason === null) return;
-    await fetch(API + `/admin/api/users/${id}/ban`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ reason }) });
-    loadUsers();
-  }
+async function saveFlags() {
+  await api('/admin/api/flags', {
+    method: 'POST',
+    body: JSON.stringify({
+      free_access: document.getElementById('flagFreeAccess').checked,
+      payment_enabled: document.getElementById('flagPaymentEnabled').checked
+    })
+  });
+  loadAll();
+}
 
-  async function unbanUser(id) {
-    await fetch(API + `/admin/api/users/${id}/unban`, { method: 'POST', headers: authHeaders() });
-    loadUsers();
-  }
+// ── SETTINGS ──
+async function loadSettings() {
+  const res = await api('/admin/api/analysis-limit');
+  const d = await res.json();
+  document.getElementById('analysisLimit').value = d.limit;
+}
 
-  async function deleteUser(id) {
-    if (!confirm('Supprimer cet utilisateur ? Cette action est irréversible.')) return;
-    await fetch(API + `/admin/api/users/${id}`, { method: 'DELETE', headers: authHeaders() });
-    loadUsers();
-  }
+async function saveMaintenance() {
+  await api('/admin/api/maintenance', {
+    method: 'POST',
+    body: JSON.stringify({
+      enabled: document.getElementById('maintenanceToggle').checked,
+      message: document.getElementById('maintenanceMsg').value
+    })
+  });
+}
 
-  async function setPlan(id, plan) {
-    await fetch(API + `/admin/api/users/${id}/plan`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ plan }) });
-    loadUsers();
-  }
+async function saveAnalysisLimit() {
+  await api('/admin/api/analysis-limit', {
+    method: 'POST',
+    body: JSON.stringify({ limit: parseInt(document.getElementById('analysisLimit').value) })
+  });
+  loadAll();
+}
 
-  async function setPlanPremium(id) {
-    const days = prompt('Durée du premium (jours) :', '30');
-    if (!days) return;
-    await fetch(API + `/admin/api/users/${id}/plan`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ plan: 'premium', duration_days: parseInt(days) }) });
-    loadUsers();
-  }
-
-  // ═══════ LICENSES ═══════
-  async function loadLicenses() {
-    const res = await fetch(API + '/admin/api/licenses', { headers: authHeaders() });
-    const keys = await res.json();
-    const tbody = document.getElementById('licensesTable');
-    tbody.innerHTML = keys.map(k => {
-      const status = k.used_by
-        ? '<span class="badge badge-banned">Utilisée</span>'
-        : '<span class="badge badge-premium">Disponible</span>';
-      const usedBy = k.used_by ? k.used_by.substring(0, 8) + '...' : '--';
-      return `<tr>
-        <td><span class="key-code ${k.used_by ? 'key-used' : ''}">${k.key}</span></td>
-        <td>${k.plan}</td>
-        <td>${k.duration_days}j</td>
-        <td>${status}</td>
-        <td>${usedBy}</td>
-        <td>${new Date(k.created_at).toLocaleDateString('fr-FR')}</td>
-      </tr>`;
-    }).join('');
-  }
-
-  async function generateKeys() {
-    const plan = document.getElementById('genPlan').value;
-    const days = parseInt(document.getElementById('genDays').value);
-    const count = parseInt(document.getElementById('genCount').value);
-    const res = await fetch(API + '/admin/api/licenses/generate', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ plan, duration_days: days, count })
-    });
-    const data = await res.json();
-    document.getElementById('generatedKeys').innerHTML =
-      '<strong>Clés générées :</strong><br>' +
-      data.keys.map(k => `<span class="key-code">${k}</span>`).join('<br>');
-    loadLicenses();
-  }
-
-  // ═══════ SETTINGS ═══════
-  async function loadSettings() {
-    const res = await fetch(API + '/api/status');
-    const data = await res.json();
-    document.getElementById('maintenanceToggle').checked = data.maintenance;
-    document.getElementById('maintenanceMsg').value = data.maintenance_message;
-    document.getElementById('minVersion').value = data.min_version;
-    document.getElementById('latestVersion').value = data.latest_version;
-
-    // Limite analyses
-    const limRes = await fetch(API + '/admin/api/analysis-limit', { headers: authHeaders() });
-    const limData = await limRes.json();
-    document.getElementById('analysisLimit').value = limData.limit;
-    document.getElementById('analysisLimitInfo').textContent =
-      `Actuellement : ${limData.current} analyses effectuées ce mois sur ${limData.limit}`;
-  }
-
-  async function saveAnalysisLimit() {
-    const limit = parseInt(document.getElementById('analysisLimit').value);
-    if (!limit || limit < 1) { alert('Valeur invalide'); return; }
-    const res = await fetch(API + '/admin/api/analysis-limit', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ limit })
-    });
-    if (res.ok) {
-      document.getElementById('analysisLimitInfo').textContent =
-        `Limite mise à jour : ${limit} analyses/mois`;
-      alert('Limite sauvegardée !');
-    }
-  }
-
-  async function toggleMaintenance() {
-    const enabled = document.getElementById('maintenanceToggle').checked;
-    await fetch(API + '/admin/api/maintenance', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ enabled })
-    });
-  }
-
-  async function saveMaintenance() {
-    const enabled = document.getElementById('maintenanceToggle').checked;
-    const message = document.getElementById('maintenanceMsg').value;
-    await fetch(API + '/admin/api/maintenance', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ enabled, message })
-    });
-    alert('Sauvegardé !');
-  }
-
-  async function saveVersions() {
-    await fetch(API + '/admin/api/version', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({
-        min_version: document.getElementById('minVersion').value,
-        latest_version: document.getElementById('latestVersion').value
-      })
-    });
-    alert('Sauvegardé !');
-  }
-
-  async function changePassword() {
-    const pwd = document.getElementById('newPassword').value;
-    if (pwd.length < 6) { alert('Min 6 caractères'); return; }
-    const res = await fetch(API + '/admin/api/password', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ new_password: pwd })
-    });
-    if (res.ok) {
-      adminPassword = pwd;
-      alert('Mot de passe changé !');
-      document.getElementById('newPassword').value = '';
-    }
-  }
-
-  // ═══════ UTILS ═══════
-  function timeAgo(dateStr) {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const min = Math.floor(diff / 60000);
-    if (min < 1) return 'maintenant';
-    if (min < 60) return min + ' min';
-    const h = Math.floor(min / 60);
-    if (h < 24) return h + 'h';
-    const d = Math.floor(h / 24);
-    return d + 'j';
-  }
+async function changeAdminPwd() {
+  const pwd = document.getElementById('newAdminPwd').value;
+  if (!pwd || pwd.length < 6) { alert('Min 6 caractères'); return; }
+  const res = await api('/admin/api/password', { method: 'POST', body: JSON.stringify({ new_password: pwd }) });
+  if (res.ok) { adminPwd = pwd; alert('Mot de passe changé'); document.getElementById('newAdminPwd').value = ''; }
+}
 </script>
 </body>
 </html>
