@@ -400,8 +400,9 @@ async function loadUsers() {
   const users = await res.json();
   const tbody = document.getElementById('usersList');
   tbody.innerHTML = users.map(u => {
+    const subLabel = {monthly:'Mensuel',yearly:'Annuel',lifetime:'À vie'}[u.subscription_type] || '';
     const plan = u.banned ? '<span class="badge badge-banned">Banni</span>'
-      : u.plan === 'premium' ? '<span class="badge badge-premium">Premium</span>'
+      : u.plan === 'premium' ? `<span class="badge badge-premium">Premium</span><br><span style="color:#69f0ae;font-size:10px">${subLabel}</span>`
       : '<span class="badge badge-free">Free</span>';
     const date = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '';
     const onlineDot = u.is_online
@@ -465,7 +466,15 @@ async function showUserDetail(id) {
         <div><span style="color:#546e7a">Inscrit le:</span><br><strong style="color:#fff">${u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '—'}</strong></div>
         <div><span style="color:#546e7a">Dernière activité:</span><br><strong style="color:#fff">${u.last_seen ? new Date(u.last_seen).toLocaleString('fr-FR') : '—'}</strong></div>
         <div><span style="color:#546e7a">Appareil:</span><br><strong style="color:#fff;font-size:11px;word-break:break-all">${u.device_id || 'Aucun'}</strong></div>
-        ${u.expires_at ? `<div><span style="color:#546e7a">Expiration:</span><br><strong style="color:#FFA726">${new Date(u.expires_at).toLocaleDateString('fr-FR')}</strong></div>` : ''}
+        ${u.expires_at ? `<div><span style="color:#546e7a">Expiration abo:</span><br><strong style="color:#FFA726">${new Date(u.expires_at).toLocaleDateString('fr-FR')}</strong></div>` : ''}
+      </div>
+
+      <h3 style="color:#fff;margin-bottom:12px">Abonnement</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div><span style="color:#546e7a">Type d'abonnement:</span><br><strong style="color:#fff">${u.subscription_type ? ({monthly:'Mensuel (9,99€/mois)',yearly:'Annuel (79,99€/an)',lifetime:'À vie (149€)'}[u.subscription_type] || u.subscription_type) : '—'}</strong></div>
+        <div><span style="color:#546e7a">Premium depuis:</span><br><strong style="color:#4CAF50">${u.premium_since ? new Date(u.premium_since).toLocaleDateString('fr-FR') : '—'}</strong></div>
+        <div><span style="color:#546e7a">Date de résiliation:</span><br><strong style="color:#ef5350">${u.cancelled_at ? new Date(u.cancelled_at).toLocaleDateString('fr-FR') : '—'}</strong></div>
+        <div><span style="color:#546e7a">ID Stripe:</span><br><strong style="color:#fff;font-size:11px">${u.stripe_subscription_id || '—'}</strong></div>
       </div>
 
       <h3 style="color:#fff;margin-bottom:12px">Statistiques courses</h3>

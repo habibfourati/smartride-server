@@ -139,11 +139,14 @@ async function handleStripeEvent(event, db) {
       if (session.mode === 'subscription' && session.subscription) {
         const sub = await stripe.subscriptions.retrieve(session.subscription);
         const expiresAt = new Date(sub.current_period_end * 1000).toISOString();
-        db.setStripeSubscription(userId, sub.id, 'premium', expiresAt);
-        console.log(`[Stripe] ✅ Premium activé user=${userId} jusqu'au ${expiresAt}`);
+        // Déterminer le type: monthly ou yearly via metadata ou intervalle
+        const planType = session.metadata?.plan || 'month';
+        const subType = planType === 'year' ? 'yearly' : 'monthly';
+        db.setStripeSubscription(userId, sub.id, 'premium', expiresAt, subType);
+        console.log(`[Stripe] ✅ Premium ${subType} activé user=${userId} jusqu'au ${expiresAt}`);
       } else if (session.mode === 'payment') {
         // Lifetime
-        db.setStripeSubscription(userId, null, 'premium', null);
+        db.setStripeSubscription(userId, null, 'premium', null, 'lifetime');
         console.log(`[Stripe] ✅ Premium lifetime activé user=${userId}`);
       }
       break;
@@ -166,7 +169,8 @@ async function handleStripeEvent(event, db) {
           } catch(e) {}
         }
         if (!expiresAt) expiresAt = new Date(Date.now() + 32*24*60*60*1000).toISOString();
-        db.setStripeSubscription(user.id, invoice.subscription || null, 'premium', expiresAt);
+        // Garder le type existant lors du renouvellement
+        db.setStripeSubscription(user.id, invoice.subscription || null, 'premium', expiresAt, user.subscription_type);
         console.log(`[Stripe] ✅ Facture payée — user=${user.id} jusqu'au ${expiresAt}`);
       }
       break;

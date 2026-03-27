@@ -124,6 +124,9 @@ try { db.exec('ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT'); } cat
 try { db.exec('ALTER TABLE users ADD COLUMN reset_token TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN reset_token_expires TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN device_id TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN premium_since TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN subscription_type TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE users ADD COLUMN cancelled_at TEXT'); } catch (_) {}
 
 // Paramètres par défaut
 const initSetting = db.prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)');
@@ -281,9 +284,18 @@ function setStripeCustomer(userId, customerId) {
   db.prepare('UPDATE users SET stripe_customer_id = ? WHERE id = ?').run(customerId, userId);
 }
 
-function setStripeSubscription(userId, subscriptionId, plan, expiresAt) {
-  db.prepare('UPDATE users SET stripe_subscription_id = ?, plan = ?, expires_at = ? WHERE id = ?')
-    .run(subscriptionId, plan, expiresAt, userId);
+function setStripeSubscription(userId, subscriptionId, plan, expiresAt, subscriptionType) {
+  if (plan === 'premium') {
+    // Enregistrer la date de passage en premium + type d'abonnement
+    const user = db.prepare('SELECT premium_since FROM users WHERE id = ?').get(userId);
+    const premiumSince = (user && user.premium_since) ? user.premium_since : new Date().toISOString();
+    db.prepare('UPDATE users SET stripe_subscription_id = ?, plan = ?, expires_at = ?, premium_since = ?, subscription_type = ?, cancelled_at = NULL WHERE id = ?')
+      .run(subscriptionId, plan, expiresAt, premiumSince, subscriptionType || null, userId);
+  } else {
+    // Passage en free = résiliation
+    db.prepare('UPDATE users SET stripe_subscription_id = ?, plan = ?, expires_at = ?, cancelled_at = ? WHERE id = ?')
+      .run(subscriptionId, plan, expiresAt, new Date().toISOString(), userId);
+  }
 }
 
 function getUserByStripeCustomer(customerId) {
