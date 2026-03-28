@@ -240,6 +240,23 @@
         <div id="uiConfigSettings" style="display:grid;gap:12px"></div>
       </div>
 
+      <div class="card" style="margin-bottom:20px">
+        <h3 style="color:#fff;margin-bottom:16px">🗺️ Source données trajet</h3>
+        <p style="color:#546e7a;margin-bottom:12px">Choisissez d'où viennent les données de distance et temps pour le calcul de rentabilité.</p>
+        <div style="display:flex;gap:12px">
+          <label style="flex:1;padding:16px;background:#0d1b2a;border-radius:8px;cursor:pointer;border:2px solid transparent" id="routeGoogle">
+            <input type="radio" name="routeSource" value="google" style="margin-right:8px">
+            <b style="color:#fff">Google Routes</b>
+            <p style="color:#546e7a;margin:8px 0 0;font-size:12px">✅ Précis avec trafic temps réel<br>💰 3 appels API/analyse = 0.012$</p>
+          </label>
+          <label style="flex:1;padding:16px;background:#0d1b2a;border-radius:8px;cursor:pointer;border:2px solid transparent" id="routeBolt">
+            <input type="radio" name="routeSource" value="bolt" style="margin-right:8px">
+            <b style="color:#fff">Bolt</b>
+            <p style="color:#546e7a;margin:8px 0 0;font-size:12px">⚡ Données Bolt (sans trafic)<br>💰 2 appels API/analyse = 0.007$</p>
+          </label>
+        </div>
+      </div>
+
       <button class="btn btn-green" onclick="saveUiConfig()" style="padding:12px 32px;font-size:16px">Sauvegarder la configuration</button>
     </div>
 
@@ -784,6 +801,19 @@ async function loadUiConfig() {
         </label>
       </div>`;
   });
+
+  // Route source radio
+  const rs = currentUiConfig.route_source || 'google';
+  document.querySelector(`input[name="routeSource"][value="${rs}"]`).checked = true;
+  document.getElementById('routeGoogle').style.borderColor = rs === 'google' ? '#4CAF50' : 'transparent';
+  document.getElementById('routeBolt').style.borderColor = rs === 'bolt' ? '#FF9800' : 'transparent';
+  document.querySelectorAll('input[name="routeSource"]').forEach(r => {
+    r.addEventListener('change', () => {
+      currentUiConfig.route_source = r.value;
+      document.getElementById('routeGoogle').style.borderColor = r.value === 'google' ? '#4CAF50' : 'transparent';
+      document.getElementById('routeBolt').style.borderColor = r.value === 'bolt' ? '#FF9800' : 'transparent';
+    });
+  });
 }
 
 async function saveUiConfig() {
@@ -792,6 +822,10 @@ async function saveUiConfig() {
     const cb = document.getElementById('uic_' + key);
     if (cb) currentUiConfig[key] = cb.checked;
   });
+
+  // Route source
+  const rs = document.querySelector('input[name="routeSource"]:checked');
+  if (rs) currentUiConfig.route_source = rs.value;
 
   await api('/admin/api/ui-config', {
     method: 'POST',

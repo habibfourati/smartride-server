@@ -159,7 +159,9 @@ initSetting.run('ui_config', JSON.stringify({
   setting_zones: true,
   setting_notification: true,
   setting_server_url: true,
-  setting_account: true
+  setting_account: true,
+  // Source données trajet: "google" (précis avec trafic) ou "bolt" (économise 1 appel API)
+  route_source: "google"
 }));
 
 console.log('[DB] Base initialisée');
