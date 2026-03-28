@@ -516,7 +516,53 @@ function getGlobalStats() {
     analysisMonthLimit: parseInt(getSetting('analysis_month_limit') || '6000'),
     onlineNow: getOnlineCount(),
     unreadMessages,
-    freeAccess: getSetting('free_access') === 'true'
+    freeAccess: getSetting('free_access') === 'true',
+    apiGoogle: getApiGoogleStats()
+  };
+}
+
+// ═══════════════════════════════════════
+// STATS API GOOGLE (basées sur ride_calculations)
+// ═══════════════════════════════════════
+
+function getApiGoogleStats() {
+  // Chaque analyse = 2 appels API Google (approche + trajet)
+  const today = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now')").get();
+  const week = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now', '-7 days')").get();
+  const month = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now', 'start of month')").get();
+  const allTime = db.prepare("SELECT COUNT(*) as total FROM ride_calculations").get();
+
+  // Par jour cette semaine
+  const daily = db.prepare(`
+    SELECT date(calculated_at) as jour, COUNT(*) as total
+    FROM ride_calculations
+    WHERE calculated_at >= date('now', '-7 days')
+    GROUP BY date(calculated_at)
+    ORDER BY jour DESC
+  `).all();
+
+  const apiCallsToday = today.total * 2;
+  const apiCallsWeek = week.total * 2;
+  const apiCallsMonth = month.total * 2;
+  const apiCallsTotal = allTime.total * 2;
+
+  // Coût estimé (0.005$ par requête Routes, 200$ crédit gratuit/mois)
+  const coutBrutMois = apiCallsMonth * 0.005;
+  const coutNetMois = Math.max(0, coutBrutMois - 200);
+
+  return {
+    analysesToday: today.total,
+    analysesWeek: week.total,
+    analysesMonth: month.total,
+    analysesTotal: allTime.total,
+    apiCallsToday,
+    apiCallsWeek,
+    apiCallsMonth,
+    apiCallsTotal,
+    coutBrutMois: Math.round(coutBrutMois * 100) / 100,
+    coutNetMois: Math.round(coutNetMois * 100) / 100,
+    creditGratuit: 200,
+    daily: daily.map(d => ({ jour: d.jour, analyses: d.total, apiCalls: d.total * 2 }))
   };
 }
 
@@ -612,5 +658,5 @@ module.exports = {
   setHeartbeat, setHeartbeatByDevice, setOffline, setOfflineByDevice, getOnlineCount,
   getMonthlyAnalysisCount, getGlobalStats,
   trackEvent, incrementDailyUsage, getUserDailyUsage, getAnalyticsSummary, getUserAnalytics,
-  getKillSwitchStatus
+  getKillSwitchStatus, getApiGoogleStats
 };

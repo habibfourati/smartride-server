@@ -122,6 +122,7 @@
     <div class="nav-btn" onclick="showTab('rides')">Courses</div>
     <div class="nav-btn" onclick="showTab('uiconfig')">Config App</div>
     <div class="nav-btn" onclick="showTab('analytics')">Analytics</div>
+    <div class="nav-btn" onclick="showTab('apigoogle')">API Google</div>
     <div class="nav-btn" onclick="showTab('killswitch')">Kill Switch</div>
     <div class="nav-btn" onclick="showTab('settings')">Paramètres</div>
   </div>
@@ -267,6 +268,35 @@
         <thead><tr><th>Date</th><th>Ouvertures</th><th>Courses</th><th>Analyses</th><th>Utilisateurs</th></tr></thead>
         <tbody id="anDailyTable"></tbody>
       </table>
+    </div>
+
+    <!-- TAB: API GOOGLE -->
+    <div class="tab-content" id="tab-apigoogle">
+      <h2 class="section-title">📊 Consommation API Google Routes</h2>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-number" id="apiToday">-</div><div class="stat-label">Appels aujourd'hui</div></div>
+        <div class="stat-card"><div class="stat-number" id="apiWeek">-</div><div class="stat-label">Appels cette semaine</div></div>
+        <div class="stat-card"><div class="stat-number" id="apiMonth">-</div><div class="stat-label">Appels ce mois</div></div>
+        <div class="stat-card"><div class="stat-number" id="apiTotal">-</div><div class="stat-label">Appels total</div></div>
+      </div>
+
+      <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div class="stat-card"><div class="stat-number" id="apiCoutBrut">-</div><div class="stat-label">Coût brut ce mois ($)</div></div>
+        <div class="stat-card" style="border:1px solid #4CAF50"><div class="stat-number" style="color:#4CAF50" id="apiCredit">200$</div><div class="stat-label">Crédit gratuit/mois</div></div>
+        <div class="stat-card"><div class="stat-number" id="apiCoutNet">-</div><div class="stat-label">Coût réel ce mois ($)</div></div>
+      </div>
+
+      <h3 style="color:#8899aa;margin-top:24px">📅 Détail par jour (7 derniers jours)</h3>
+      <table>
+        <thead><tr><th>Jour</th><th>Analyses</th><th>Appels API</th><th>Coût estimé ($)</th></tr></thead>
+        <tbody id="apiDailyTable"></tbody>
+      </table>
+
+      <div style="margin-top:20px;padding:16px;background:#1a2634;border-radius:12px;color:#8899aa;font-size:13px">
+        <p>💡 Chaque analyse = <b>2 appels API Google</b> (approche + trajet)</p>
+        <p>💰 Tarif : 0.005$ par appel = 0.01$ par analyse</p>
+        <p>🎁 Crédit gratuit : 200$/mois = ~20 000 analyses gratuites</p>
+      </div>
     </div>
 
     <!-- TAB: KILL SWITCH -->
@@ -417,6 +447,26 @@ async function loadAll() {
   const pct = s.monthlyAnalyses / s.analysisMonthLimit;
   const mc = document.getElementById('monthlyCard');
   mc.className = 'stat-card ' + (pct >= 0.9 ? 'red' : pct >= 0.7 ? 'orange' : 'green');
+
+  // API Google stats
+  if (s.apiGoogle) {
+    const g = s.apiGoogle;
+    document.getElementById('apiToday').textContent = g.apiCallsToday.toLocaleString();
+    document.getElementById('apiWeek').textContent = g.apiCallsWeek.toLocaleString();
+    document.getElementById('apiMonth').textContent = g.apiCallsMonth.toLocaleString();
+    document.getElementById('apiTotal').textContent = g.apiCallsTotal.toLocaleString();
+    document.getElementById('apiCoutBrut').textContent = g.coutBrutMois + '$';
+    document.getElementById('apiCoutNet').textContent = g.coutNetMois + '$';
+    document.getElementById('apiCoutNet').style.color = g.coutNetMois > 0 ? '#ef5350' : '#4CAF50';
+
+    const tbody = document.getElementById('apiDailyTable');
+    tbody.innerHTML = g.daily.map(d => `<tr>
+      <td>${d.jour}</td>
+      <td>${d.analyses}</td>
+      <td>${d.apiCalls}</td>
+      <td>${(d.apiCalls * 0.005).toFixed(2)}$</td>
+    </tr>`).join('');
+  }
 }
 
 async function refreshOnline() {
