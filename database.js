@@ -526,7 +526,7 @@ function getGlobalStats() {
 // ═══════════════════════════════════════
 
 function getApiGoogleStats() {
-  // Chaque analyse = 2 appels API Google (approche + trajet)
+  // Chaque analyse = 3 appels API Google (Routes approche + Routes trajet + Static Map)
   const today = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now')").get();
   const week = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now', '-7 days')").get();
   const month = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now', 'start of month')").get();
@@ -541,13 +541,13 @@ function getApiGoogleStats() {
     ORDER BY jour DESC
   `).all();
 
-  const apiCallsToday = today.total * 2;
-  const apiCallsWeek = week.total * 2;
-  const apiCallsMonth = month.total * 2;
-  const apiCallsTotal = allTime.total * 2;
+  const apiCallsToday = today.total * 3;
+  const apiCallsWeek = week.total * 3;
+  const apiCallsMonth = month.total * 3;
+  const apiCallsTotal = allTime.total * 3;
 
-  // Coût estimé (0.005$ par requête Routes, 200$ crédit gratuit/mois)
-  const coutBrutMois = apiCallsMonth * 0.005;
+  // Coût estimé : Routes = 0.005$/appel × 2 + Static Map = 0.002$/appel × 1 = 0.012$/analyse
+  const coutBrutMois = month.total * 0.012;
   const coutNetMois = Math.max(0, coutBrutMois - 200);
 
   return {
@@ -562,7 +562,7 @@ function getApiGoogleStats() {
     coutBrutMois: Math.round(coutBrutMois * 100) / 100,
     coutNetMois: Math.round(coutNetMois * 100) / 100,
     creditGratuit: 200,
-    daily: daily.map(d => ({ jour: d.jour, analyses: d.total, apiCalls: d.total * 2 }))
+    daily: daily.map(d => ({ jour: d.jour, analyses: d.total, apiCalls: d.total * 3, cout: Math.round(d.total * 0.012 * 100) / 100 }))
   };
 }
 
