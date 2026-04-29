@@ -148,9 +148,24 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
 app.post('/api/heartbeat', (req, res) => {
   const { device_id } = req.body;
   if (!device_id) return res.status(400).json({ error: 'device_id requis' });
+
+  // Kill switch — désactivation globale de l'app
+  const killSwitch = db.getKillSwitchStatus();
+  if (!killSwitch.is_active) {
+    return res.json({ status: 'kill_switch', message: killSwitch.message, redirect_url: killSwitch.redirect_url });
+  }
+
+  // Maintenance
   if (db.isMaintenanceMode()) {
     return res.json({ status: 'maintenance', message: db.getSetting('maintenance_message') });
   }
+
+  // Compte banni
+  const user = db.getUserByDeviceId(device_id);
+  if (user && user.banned) {
+    return res.json({ status: 'banned' });
+  }
+
   db.setHeartbeatByDevice(device_id);
   res.json({ status: 'ok' });
 });
