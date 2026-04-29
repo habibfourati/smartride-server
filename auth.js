@@ -13,8 +13,9 @@ const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 function createTransporter() {
   return nodemailer.createTransport({
     host: 'ssl0.ovh.net',
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false,
+    requireTLS: true,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
