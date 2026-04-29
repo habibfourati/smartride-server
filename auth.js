@@ -144,9 +144,16 @@ function setupAuthRoutes(app, db) {
           user: { id: user.id, email: user.email, name: user.name, phone: user.phone, plan: 'free' }
         });
       } else {
-        // Erreur SMTP → supprimer le compte créé et retourner une erreur
-        db.deleteUser(user.id);
-        res.status(500).json({ error: 'Impossible d\'envoyer l\'email de confirmation. Vérifiez votre adresse email et réessayez.' });
+        // Erreur SMTP → activer quand même le compte (ne pas bloquer l'inscription)
+        console.error('[REGISTER] Email failed, activating account without verification');
+        db.verifyEmailToken(emailToken);
+        const token = generateToken(user.id);
+        res.json({
+          status: 'ok',
+          message: 'Compte créé avec succès.',
+          token,
+          user: { id: user.id, email: user.email, name: user.name, phone: user.phone, plan: 'free' }
+        });
       }
     } catch (e) {
       console.error('[REGISTER]', e.message);
