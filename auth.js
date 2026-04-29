@@ -123,38 +123,21 @@ function setupAuthRoutes(app, db) {
       const emailToken = crypto.randomBytes(32).toString('hex');
       const user = db.createAccount(email.toLowerCase().trim(), passwordHash, name || '', phone, emailToken);
 
-      // Envoyer email de vérification
-      const emailResult = await sendVerificationEmail(email, emailToken, name);
+      // Activer le compte immédiatement
+      db.verifyEmailToken(emailToken);
+      const token = generateToken(user.id);
 
-      if (emailResult === 'sent') {
-        // Email envoyé → l'utilisateur doit vérifier
-        res.json({
-          status: 'ok',
-          message: 'Compte créé ! Vérifiez votre email pour activer votre compte.',
-          needsVerification: true
-        });
-      } else if (emailResult === 'not_configured') {
-        // Mode dev : activer directement sans email
-        db.verifyEmailToken(emailToken);
-        const token = generateToken(user.id);
-        res.json({
-          status: 'ok',
-          message: 'Compte créé avec succès.',
-          token,
-          user: { id: user.id, email: user.email, name: user.name, phone: user.phone, plan: 'free' }
-        });
-      } else {
-        // Erreur SMTP → activer quand même le compte (ne pas bloquer l'inscription)
-        console.error('[REGISTER] Email failed, activating account without verification');
-        db.verifyEmailToken(emailToken);
-        const token = generateToken(user.id);
-        res.json({
-          status: 'ok',
-          message: 'Compte créé avec succès.',
-          token,
-          user: { id: user.id, email: user.email, name: user.name, phone: user.phone, plan: 'free' }
-        });
-      }
+      // Envoyer email de bienvenue en arrière-plan (non-bloquant)
+      sendVerificationEmail(email, emailToken, name).catch(err => {
+        console.error('[EMAIL BG]', err.message);
+      });
+
+      res.json({
+        status: 'ok',
+        message: 'Compte créé avec succès.',
+        token,
+        user: { id: user.id, email: user.email, name: user.name, phone: user.phone, plan: 'free' }
+      });
     } catch (e) {
       console.error('[REGISTER]', e.message);
       res.status(500).json({ error: 'Erreur serveur' });
@@ -191,10 +174,7 @@ function setupAuthRoutes(app, db) {
       if (!user) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
       if (user.banned) return res.status(403).json({ error: 'Compte suspendu', reason: user.ban_reason });
 
-      // Vérifier email confirmé (si email configuré)
-      if (process.env.EMAIL_USER && !process.env.EMAIL_USER.includes('REMPLACER') && !user.email_verified) {
-        return res.status(403).json({ error: 'Veuillez d\'abord vérifier votre email. Consultez votre boîte de réception.' });
-      }
+      // Email verification not required (accounts auto-verified at registration)
 
       const valid = await bcrypt.compare(password, user.password_hash);
       if (!valid) return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
