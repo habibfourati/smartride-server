@@ -122,7 +122,7 @@
     <div class="nav-btn" onclick="showTab('rides')">Courses</div>
     <div class="nav-btn" onclick="showTab('uiconfig')">Config App</div>
     <div class="nav-btn" onclick="showTab('analytics')">Analytics</div>
-    <div class="nav-btn" onclick="showTab('apigoogle')">API Google</div>
+    <div class="nav-btn" onclick="showTab('apimapbox')">API Mapbox</div>
     <div class="nav-btn" onclick="showTab('killswitch')">Kill Switch</div>
     <div class="nav-btn" onclick="showTab('settings')">Paramètres</div>
   </div>
@@ -244,10 +244,10 @@
         <h3 style="color:#fff;margin-bottom:16px">🗺️ Source données trajet</h3>
         <p style="color:#546e7a;margin-bottom:12px">Choisissez d'où viennent les données de distance et temps pour le calcul de rentabilité.</p>
         <div style="display:flex;gap:12px">
-          <label style="flex:1;padding:16px;background:#0d1b2a;border-radius:8px;cursor:pointer;border:2px solid transparent" id="routeGoogle">
-            <input type="radio" name="routeSource" value="google" style="margin-right:8px">
-            <b style="color:#fff">Google Routes</b>
-            <p style="color:#546e7a;margin:8px 0 0;font-size:12px">✅ Précis avec trafic temps réel<br>💰 3 appels API/analyse = 0.012$</p>
+          <label style="flex:1;padding:16px;background:#0d1b2a;border-radius:8px;cursor:pointer;border:2px solid transparent" id="routeMapbox">
+            <input type="radio" name="routeSource" value="mapbox" style="margin-right:8px">
+            <b style="color:#fff">Mapbox</b>
+            <p style="color:#546e7a;margin:8px 0 0;font-size:12px">✅ Précis avec trafic temps réel<br>💰 5 appels API/analyse = 0.003$</p>
           </label>
           <label style="flex:1;padding:16px;background:#0d1b2a;border-radius:8px;cursor:pointer;border:2px solid transparent" id="routeBolt">
             <input type="radio" name="routeSource" value="bolt" style="margin-right:8px">
@@ -287,9 +287,9 @@
       </table>
     </div>
 
-    <!-- TAB: API GOOGLE -->
-    <div class="tab-content" id="tab-apigoogle">
-      <h2 class="section-title">📊 Consommation API Google Routes</h2>
+    <!-- TAB: API MAPBOX -->
+    <div class="tab-content" id="tab-apimapbox">
+      <h2 class="section-title">📊 Consommation API Mapbox</h2>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-number" id="apiToday">-</div><div class="stat-label">Appels aujourd'hui</div></div>
         <div class="stat-card"><div class="stat-number" id="apiWeek">-</div><div class="stat-label">Appels cette semaine</div></div>
@@ -310,11 +310,12 @@
       </table>
 
       <div style="margin-top:20px;padding:16px;background:#1a2634;border-radius:12px;color:#8899aa;font-size:13px">
-        <p>💡 Chaque analyse = <b>3 appels API Google</b> :</p>
-        <p>  • Routes API × 2 (approche + trajet) = 0.010$</p>
-        <p>  • Static Maps API × 1 (image carte) = 0.002$</p>
-        <p>💰 Total : <b>0.012$ par analyse</b></p>
-        <p>🎁 Crédit gratuit : 200$/mois = <b>~16 600 analyses gratuites</b></p>
+        <p>💡 Chaque analyse = <b>5 appels API Mapbox</b> :</p>
+        <p>  • Directions API × 2 (approche + trajet) = 0.001$</p>
+        <p>  • Geocoding API × 2 (départ + arrivée) = 0.0015$</p>
+        <p>  • Static Images API × 1 (carte) = 0.00025$</p>
+        <p>💰 Total : <b>0.003$ par analyse</b></p>
+        <p>🎁 Quota gratuit : 100k Directions + 100k Geocoding + 50k Static/mois</p>
       </div>
     </div>
 
@@ -467,9 +468,9 @@ async function loadAll() {
   const mc = document.getElementById('monthlyCard');
   mc.className = 'stat-card ' + (pct >= 0.9 ? 'red' : pct >= 0.7 ? 'orange' : 'green');
 
-  // API Google stats
-  if (s.apiGoogle) {
-    const g = s.apiGoogle;
+  // API Mapbox stats
+  if (s.apiMapbox) {
+    const g = s.apiMapbox;
     document.getElementById('apiToday').textContent = g.apiCallsToday.toLocaleString();
     document.getElementById('apiWeek').textContent = g.apiCallsWeek.toLocaleString();
     document.getElementById('apiMonth').textContent = g.apiCallsMonth.toLocaleString();
@@ -503,7 +504,7 @@ async function loadUsers() {
   const tbody = document.getElementById('usersList');
   tbody.innerHTML = users.map(u => {
     const subLabel = {monthly:'Mensuel',yearly:'Annuel',lifetime:'À vie'}[u.subscription_type] || '';
-    const plan = u.banned ? '<span class="badge badge-banned">Banni</span>'
+    const plan = u.banned ? '<span class="badge badge-banned">Désactivé</span>'
       : u.plan === 'premium' ? `<span class="badge badge-premium">Premium</span><br><span style="color:#69f0ae;font-size:10px">${subLabel}</span>`
       : '<span class="badge badge-free">Free</span>';
     const date = u.created_at ? new Date(u.created_at).toLocaleDateString('fr-FR') : '';
@@ -520,8 +521,8 @@ async function loadUsers() {
       <td>${date}</td>
       <td class="actions">
         ${u.banned
-          ? `<button class="btn btn-green" onclick="unbanUser('${u.id}')">Débannir</button>`
-          : `<button class="btn btn-red" onclick="banUser('${u.id}')">Bannir</button>`}
+          ? `<button class="btn btn-green" onclick="unbanUser('${u.id}')">✓ Activer</button>`
+          : `<button class="btn btn-red" onclick="banUser('${u.id}')">✗ Désactiver</button>`}
         ${u.plan !== 'premium'
           ? `<button class="btn btn-green" onclick="setPlan('${u.id}','premium')">→ Premium</button>`
           : `<button class="btn btn-gray" onclick="setPlan('${u.id}','free')">→ Free</button>`}
@@ -533,7 +534,7 @@ async function loadUsers() {
   }).join('');
 }
 
-async function banUser(id) { await api(`/admin/api/users/${id}/ban`, { method: 'POST', body: '{"reason":"Banni par admin"}' }); loadUsers(); loadAll(); }
+async function banUser(id) { await api(`/admin/api/users/${id}/ban`, { method: 'POST', body: '{"reason":"Compte désactivé par l\'administrateur."}' }); loadUsers(); loadAll(); }
 async function unbanUser(id) { await api(`/admin/api/users/${id}/unban`, { method: 'POST' }); loadUsers(); loadAll(); }
 async function setPlan(id, plan) { await api(`/admin/api/users/${id}/plan`, { method: 'POST', body: JSON.stringify({ plan }) }); loadUsers(); loadAll(); }
 async function resetDevice(id) { if(!confirm('Reset appareil ? L\'utilisateur pourra se connecter depuis un autre téléphone.')) return; await api(`/admin/api/users/${id}/reset-device`, { method: 'POST' }); loadUsers(); }
@@ -803,14 +804,16 @@ async function loadUiConfig() {
   });
 
   // Route source radio
-  const rs = currentUiConfig.route_source || 'google';
-  document.querySelector(`input[name="routeSource"][value="${rs}"]`).checked = true;
-  document.getElementById('routeGoogle').style.borderColor = rs === 'google' ? '#4CAF50' : 'transparent';
+  const rsRaw = currentUiConfig.route_source || 'mapbox';
+  const rs = rsRaw === 'google' ? 'mapbox' : rsRaw; // compat ancienne valeur
+  const rsInput = document.querySelector(`input[name="routeSource"][value="${rs}"]`);
+  if (rsInput) rsInput.checked = true;
+  document.getElementById('routeMapbox').style.borderColor = rs === 'mapbox' ? '#4CAF50' : 'transparent';
   document.getElementById('routeBolt').style.borderColor = rs === 'bolt' ? '#FF9800' : 'transparent';
   document.querySelectorAll('input[name="routeSource"]').forEach(r => {
     r.addEventListener('change', () => {
       currentUiConfig.route_source = r.value;
-      document.getElementById('routeGoogle').style.borderColor = r.value === 'google' ? '#4CAF50' : 'transparent';
+      document.getElementById('routeMapbox').style.borderColor = r.value === 'mapbox' ? '#4CAF50' : 'transparent';
       document.getElementById('routeBolt').style.borderColor = r.value === 'bolt' ? '#FF9800' : 'transparent';
     });
   });
