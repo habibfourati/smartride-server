@@ -326,7 +326,10 @@ function setupAuthRoutes(app, db) {
     try {
       const { token, password } = req.body;
       if (!token || !password) return res.status(400).json({ error: 'Token et mot de passe requis' });
-      if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (min 6)' });
+      if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (min 8 caractères)' });
+      if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir lettres et chiffres' });
+      }
 
       const user = db.getUserByResetToken(token);
       if (!user) return res.status(400).json({ error: 'Lien invalide ou expiré' });

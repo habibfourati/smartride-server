@@ -261,6 +261,8 @@ function unbanUser(userId) {
 function deleteUser(userId) {
   db.prepare('DELETE FROM ride_calculations WHERE user_id = ?').run(userId);
   db.prepare('DELETE FROM messages WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM analytics_events WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM daily_usage WHERE user_id = ?').run(userId);
   db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 }
 
@@ -519,22 +521,24 @@ function getGlobalStats() {
     onlineNow: getOnlineCount(),
     unreadMessages,
     freeAccess: getSetting('free_access') === 'true',
-    apiGoogle: getApiGoogleStats()
+    apiMapbox: getApiMapboxStats()
   };
 }
 
 // ═══════════════════════════════════════
-// STATS API GOOGLE (basées sur ride_calculations)
+// STATS API MAPBOX (basées sur ride_calculations)
 // ═══════════════════════════════════════
 
-function getApiGoogleStats() {
-  // Chaque analyse = 3 appels API Google (Routes approche + Routes trajet + Static Map)
+function getApiMapboxStats() {
+  // Chaque analyse = 6 appels Mapbox :
+  // 2 Directions (approche + trajet) + 3 Geocoding (pickup + dropoff + approche dest) + 1 Static Map
+  const CALLS_PER_ANALYSE = 6;
+
   const today = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now')").get();
-  const week = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now', '-7 days')").get();
+  const week  = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now', '-7 days')").get();
   const month = db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now', 'start of month')").get();
   const allTime = db.prepare("SELECT COUNT(*) as total FROM ride_calculations").get();
 
-  // Par jour cette semaine
   const daily = db.prepare(`
     SELECT date(calculated_at) as jour, COUNT(*) as total
     FROM ride_calculations
@@ -543,28 +547,46 @@ function getApiGoogleStats() {
     ORDER BY jour DESC
   `).all();
 
-  const apiCallsToday = today.total * 3;
-  const apiCallsWeek = week.total * 3;
-  const apiCallsMonth = month.total * 3;
-  const apiCallsTotal = allTime.total * 3;
+  // Tarifs Mapbox après quota gratuit
+  // Directions: $0.50/1000 après 100 000 gratuits
+  // Geocoding:  $0.75/1000 après 100 000 gratuits
+  // Static:     $0.25/1000 après  50 000 gratuits
+  const FREE_DIR = 100000, FREE_GEO = 100000, FREE_STAT = 50000;
+  const RATE_DIR = 0.50 / 1000, RATE_GEO = 0.75 / 1000, RATE_STAT = 0.25 / 1000;
 
-  // Coût estimé : Routes = 0.005$/appel × 2 + Static Map = 0.002$/appel × 1 = 0.012$/analyse
-  const coutBrutMois = month.total * 0.012;
-  const coutNetMois = Math.max(0, coutBrutMois - 200);
+  const dirMonth  = month.total * 2;
+  const geoMonth  = month.total * 3;
+  const statMonth = month.total * 1;
+
+  const coutDir  = Math.max(0, dirMonth  - FREE_DIR)  * RATE_DIR;
+  const coutGeo  = Math.max(0, geoMonth  - FREE_GEO)  * RATE_GEO;
+  const coutStat = Math.max(0, statMonth - FREE_STAT) * RATE_STAT;
+  const coutTotalMois = coutDir + coutGeo + coutStat;
+
+  // Coût moyen par analyse (simplifié)
+  const coutParAnalyse = month.total > 0 ? coutTotalMois / month.total : 0;
 
   return {
     analysesToday: today.total,
-    analysesWeek: week.total,
+    analysesWeek:  week.total,
     analysesMonth: month.total,
     analysesTotal: allTime.total,
-    apiCallsToday,
-    apiCallsWeek,
-    apiCallsMonth,
-    apiCallsTotal,
-    coutBrutMois: Math.round(coutBrutMois * 100) / 100,
-    coutNetMois: Math.round(coutNetMois * 100) / 100,
-    creditGratuit: 200,
-    daily: daily.map(d => ({ jour: d.jour, analyses: d.total, apiCalls: d.total * 3, cout: Math.round(d.total * 0.012 * 100) / 100 }))
+    apiCallsToday:  today.total  * CALLS_PER_ANALYSE,
+    apiCallsWeek:   week.total   * CALLS_PER_ANALYSE,
+    apiCallsMonth:  month.total  * CALLS_PER_ANALYSE,
+    apiCallsTotal:  allTime.total * CALLS_PER_ANALYSE,
+    coutTotalMois:  Math.round(coutTotalMois * 100) / 100,
+    coutParAnalyse: Math.round(coutParAnalyse * 10000) / 10000,
+    breakdown: {
+      directions: { calls: dirMonth,  free: FREE_DIR,  cout: Math.round(coutDir  * 100) / 100 },
+      geocoding:  { calls: geoMonth,  free: FREE_GEO,  cout: Math.round(coutGeo  * 100) / 100 },
+      static:     { calls: statMonth, free: FREE_STAT, cout: Math.round(coutStat * 100) / 100 }
+    },
+    daily: daily.map(d => ({
+      jour: d.jour,
+      analyses: d.total,
+      apiCalls: d.total * CALLS_PER_ANALYSE
+    }))
   };
 }
 
@@ -660,5 +682,5 @@ module.exports = {
   setHeartbeat, setHeartbeatByDevice, setOffline, setOfflineByDevice, getOnlineCount,
   getMonthlyAnalysisCount, getGlobalStats,
   trackEvent, incrementDailyUsage, getUserDailyUsage, getAnalyticsSummary, getUserAnalytics,
-  getKillSwitchStatus, getApiGoogleStats
+  getKillSwitchStatus, getApiMapboxStats
 };
