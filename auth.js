@@ -22,11 +22,12 @@ function createTransporter() {
   });
 }
 
+// Retourne : 'sent' | 'not_configured' | 'error'
 async function sendVerificationEmail(email, token, name) {
   const link = `${APP_URL}/api/auth/verify-email?token=${token}`;
   if (!process.env.EMAIL_USER || process.env.EMAIL_USER.includes('REMPLACER')) {
     console.log(`[EMAIL SIMULÉ] Vérification pour ${email}: ${link}`);
-    return false;
+    return 'not_configured';
   }
   try {
     const transporter = createTransporter();
@@ -48,10 +49,10 @@ async function sendVerificationEmail(email, token, name) {
       `
     });
     console.log(`[EMAIL] Vérification envoyée à ${email}`);
-    return true;
+    return 'sent';
   } catch (e) {
     console.error(`[EMAIL ERREUR]`, e.message);
-    return false;
+    return 'error';
   }
 }
 
@@ -122,17 +123,17 @@ function setupAuthRoutes(app, db) {
       const user = db.createAccount(email.toLowerCase().trim(), passwordHash, name || '', phone, emailToken);
 
       // Envoyer email de vérification
-      const emailSent = await sendVerificationEmail(email, emailToken, name);
+      const emailResult = await sendVerificationEmail(email, emailToken, name);
 
-      if (emailSent) {
+      if (emailResult === 'sent') {
         // Email envoyé → l'utilisateur doit vérifier
         res.json({
           status: 'ok',
           message: 'Compte créé ! Vérifiez votre email pour activer votre compte.',
           needsVerification: true
         });
-      } else {
-        // Email non configuré → activer directement
+      } else if (emailResult === 'not_configured') {
+        // Mode dev : activer directement sans email
         db.verifyEmailToken(emailToken);
         const token = generateToken(user.id);
         res.json({
@@ -141,6 +142,10 @@ function setupAuthRoutes(app, db) {
           token,
           user: { id: user.id, email: user.email, name: user.name, phone: user.phone, plan: 'free' }
         });
+      } else {
+        // Erreur SMTP → supprimer le compte créé et retourner une erreur
+        db.deleteUser(user.id);
+        res.status(500).json({ error: 'Impossible d\'envoyer l\'email de confirmation. Vérifiez votre adresse email et réessayez.' });
       }
     } catch (e) {
       console.error('[REGISTER]', e.message);
