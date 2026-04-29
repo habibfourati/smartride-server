@@ -131,6 +131,17 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
   });
   db.incrementDailyUsage(user.id, 'analyses_done');
 
+  // Compteur API Mapbox (estimé par analyse)
+  // Par analyse : 2 Directions + 3 Geocoding + 1 Static = 6 appels Mapbox
+  const monthKey = new Date().toISOString().substring(0, 7); // YYYY-MM
+  const addCounter = (key, amount) => {
+    const cur = parseInt(db.getSetting(`mapbox_${key}_${monthKey}`) || '0');
+    db.setSetting(`mapbox_${key}_${monthKey}`, String(cur + amount));
+  };
+  addCounter('directions', 2);
+  addCounter('geocoding', 3);
+  addCounter('static', 1);
+
   res.json({
     status: 'ok',
     score: Math.round(score * 10) / 10,
@@ -404,6 +415,37 @@ app.post('/admin/api/ui-config', adminAuth, (req, res) => {
   const config = req.body;
   db.setSetting('ui_config', JSON.stringify(config));
   res.json({ status: 'ok', config });
+});
+
+// ── COMPTEUR USAGE API MAPBOX ──
+app.get('/admin/api/api-usage', adminAuth, (req, res) => {
+  const monthKey = req.query.month || new Date().toISOString().substring(0, 7);
+
+  const directions = parseInt(db.getSetting(`mapbox_directions_${monthKey}`) || '0');
+  const geocoding  = parseInt(db.getSetting(`mapbox_geocoding_${monthKey}`) || '0');
+  const staticImg  = parseInt(db.getSetting(`mapbox_static_${monthKey}`) || '0');
+
+  // Tarifs Mapbox (après quota gratuit)
+  const FREE_DIRECTIONS = 100000;
+  const FREE_GEOCODING  = 100000;
+  const FREE_STATIC     = 50000;
+  const RATE_DIRECTIONS = 0.50 / 1000; // $0.50 per 1000
+  const RATE_GEOCODING  = 0.75 / 1000; // $0.75 per 1000
+  const RATE_STATIC     = 0.25 / 1000; // $0.25 per 1000
+
+  const costDirections = Math.max(0, directions - FREE_DIRECTIONS) * RATE_DIRECTIONS;
+  const costGeocoding  = Math.max(0, geocoding  - FREE_GEOCODING)  * RATE_GEOCODING;
+  const costStatic     = Math.max(0, staticImg  - FREE_STATIC)     * RATE_STATIC;
+  const totalCost      = costDirections + costGeocoding + costStatic;
+
+  res.json({
+    month: monthKey,
+    directions: { calls: directions, free: FREE_DIRECTIONS, billable: Math.max(0, directions - FREE_DIRECTIONS), cost_usd: +costDirections.toFixed(2) },
+    geocoding:  { calls: geocoding,  free: FREE_GEOCODING,  billable: Math.max(0, geocoding  - FREE_GEOCODING),  cost_usd: +costGeocoding.toFixed(2)  },
+    static:     { calls: staticImg,  free: FREE_STATIC,     billable: Math.max(0, staticImg  - FREE_STATIC),     cost_usd: +costStatic.toFixed(2)     },
+    total_calls: directions + geocoding + staticImg,
+    total_cost_usd: +totalCost.toFixed(2)
+  });
 });
 
 // ── ANALYTICS ADMIN ──

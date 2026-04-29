@@ -109,7 +109,10 @@ function setupAuthRoutes(app, db) {
       const { email, password, name, phone } = req.body;
       if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
       if (!phone) return res.status(400).json({ error: 'Numéro de téléphone requis' });
-      if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (min 6 caractères)' });
+      if (password.length < 8) return res.status(400).json({ error: 'Mot de passe trop court (min 8 caractères)' });
+      if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir lettres et chiffres' });
+      }
 
       const existing = db.getUserByEmail(email.toLowerCase().trim());
       if (existing) return res.status(409).json({ error: 'Email déjà utilisé' });
