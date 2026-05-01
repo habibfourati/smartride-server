@@ -240,7 +240,7 @@ function checkDeviceLock(userId, deviceId) {
     return { allowed: true, reason: 'OK' };
   }
   // Appareil différent → BLOQUÉ
-  return { allowed: false, reason: 'Ce compte est déjà lié à un autre appareil. Contactez le support.' };
+  return { allowed: false, reason: 'Ce compte est déjà associé à un autre téléphone. Si vous avez changé d\'appareil ou si c\'est une erreur, contactez-nous à contact@smartride-ai.com et nous réglerons ça rapidement.' };
 }
 
 // ═══════════════════════════════════════
