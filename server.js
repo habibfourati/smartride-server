@@ -421,6 +421,137 @@ app.post('/admin/api/ui-config', adminAuth, (req, res) => {
   res.json({ status: 'ok', config });
 });
 
+// ── PROXY GÉOCODAGE MAPBOX ──
+app.post('/api/geocode', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requis' });
+  if (!verifyToken(authHeader.substring(7))) return res.status(401).json({ error: 'Token invalide' });
+
+  const { address, proximity } = req.body;
+  if (!address) return res.status(400).json({ error: 'address requis' });
+
+  const https = require('https');
+  const proximityParam = proximity ? `&proximity=${proximity}` : '';
+
+  // Normalise : smart quotes → apostrophe standard, trim trailing comma
+  const normalize = (addr) => addr.trim()
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/,\s*$/, '');
+
+  const tryGeocode = (query, callback) => {
+    const encoded = encodeURIComponent(query);
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json` +
+      `?access_token=${process.env.MAPBOX_TOKEN}&country=fr&limit=1&language=fr${proximityParam}`;
+    https.get(url, (mapboxRes) => {
+      let data = '';
+      mapboxRes.on('data', chunk => data += chunk);
+      mapboxRes.on('end', () => {
+        try { callback(null, JSON.parse(data).features || []); }
+        catch (e) { callback(e, []); }
+      });
+    }).on('error', (e) => callback(e, []));
+  };
+
+  const cleaned = normalize(address);
+
+  // Essai 1 : adresse complète
+  tryGeocode(cleaned, (err, features) => {
+    if (!err && features.length > 0) {
+      const [lng, lat] = features[0].center;
+      return res.json({ lng, lat });
+    }
+    // Essai 2 : sans le numéro de rue ("66 Rue d'Ascq..." → "Rue d'Ascq...")
+    const withoutNumber = cleaned.replace(/^\d+\s+/, '');
+    if (withoutNumber === cleaned) return res.status(404).json({ error: 'Adresse introuvable' });
+
+    tryGeocode(withoutNumber, (err2, features2) => {
+      if (!err2 && features2.length > 0) {
+        const [lng, lat] = features2[0].center;
+        return res.json({ lng, lat });
+      }
+      // Essai 3 : ville + code postal uniquement
+      const cityMatch = cleaned.match(/,\s*(.+)$/);
+      if (!cityMatch) return res.status(404).json({ error: 'Adresse introuvable' });
+
+      tryGeocode(cityMatch[1].trim(), (err3, features3) => {
+        if (!err3 && features3.length > 0) {
+          const [lng, lat] = features3[0].center;
+          return res.json({ lng, lat });
+        }
+        return res.status(404).json({ error: 'Adresse introuvable' });
+      });
+    });
+  });
+});
+
+// ── PROXY DIRECTIONS MAPBOX ──
+app.post('/api/route', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requis' });
+  if (!verifyToken(authHeader.substring(7))) return res.status(401).json({ error: 'Token invalide' });
+
+  const { origin, destination } = req.body; // "lng,lat"
+  if (!origin || !destination) return res.status(400).json({ error: 'origin et destination requis' });
+
+  const https = require('https');
+  const mapboxUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${origin};${destination}` +
+    `?access_token=${process.env.MAPBOX_TOKEN}&geometries=polyline&overview=full&language=fr`;
+
+  https.get(mapboxUrl, (mapboxRes) => {
+    let data = '';
+    mapboxRes.on('data', chunk => data += chunk);
+    mapboxRes.on('end', () => {
+      try {
+        const json = JSON.parse(data);
+        const routes = json.routes;
+        if (!routes || routes.length === 0) return res.status(404).json({ error: 'Aucun itinéraire trouvé' });
+        const route = routes[0];
+        res.json({
+          distance_m: Math.round(route.distance),
+          duration_s: Math.round(route.duration),
+          polyline: route.geometry
+        });
+      } catch (e) {
+        res.status(500).json({ error: 'Réponse Mapbox invalide' });
+      }
+    });
+  }).on('error', (e) => res.status(500).json({ error: 'Erreur Mapbox: ' + e.message }));
+});
+
+// ── PROXY CARTE STATIQUE MAPBOX ──
+app.get('/api/map', (req, res) => {
+  // Auth via query param (Glide ne peut pas ajouter de header Authorization)
+  const jwtToken = req.query.token;
+  if (!jwtToken) return res.status(401).json({ error: 'Token requis' });
+  if (!verifyToken(jwtToken)) return res.status(401).json({ error: 'Token invalide' });
+
+  const https = require('https');
+  const { driverLat, driverLng, pickupLat, pickupLng, dropoffLat, dropoffLng, approachPolyline, tripPolyline } = req.query;
+
+  if (!pickupLat || !pickupLng || !dropoffLat || !dropoffLng) {
+    return res.status(400).json({ error: 'Paramètres manquants' });
+  }
+
+  const overlays = [];
+  if (approachPolyline) overlays.push(`path-4+4285F4-1(${encodeURIComponent(approachPolyline)})`);
+  if (tripPolyline)     overlays.push(`path-5+34A853-1(${encodeURIComponent(tripPolyline)})`);
+  if (driverLat && driverLng && parseFloat(driverLat) !== 0) {
+    overlays.push(`pin-s-a+4285F4(${driverLng},${driverLat})`);
+  }
+  overlays.push(`pin-s-b+34A853(${pickupLng},${pickupLat})`);
+  overlays.push(`pin-s-c+EA4335(${dropoffLng},${dropoffLat})`);
+
+  const mapboxUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlays.join(',')}/auto/600x300?access_token=${process.env.MAPBOX_TOKEN}`;
+
+  https.get(mapboxUrl, (mapboxRes) => {
+    res.setHeader('Content-Type', mapboxRes.headers['content-type'] || 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    mapboxRes.pipe(res);
+  }).on('error', (e) => {
+    res.status(500).json({ error: 'Erreur Mapbox: ' + e.message });
+  });
+});
+
 // ── COMPTEUR USAGE API MAPBOX ──
 app.get('/admin/api/api-usage', adminAuth, (req, res) => {
   res.json(db.getApiMapboxStats());
