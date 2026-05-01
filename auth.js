@@ -128,7 +128,8 @@ function setupAuthRoutes(app, db) {
       const token = generateToken(user.id);
 
       // Envoyer email de bienvenue en arrière-plan (non-bloquant)
-      sendVerificationEmail(email, emailToken, name).catch(err => {
+      // Le compte est déjà activé — on envoie un email de bienvenue, pas d'activation
+      sendWelcomeEmail(email, name).catch(err => {
         console.error('[EMAIL BG]', err.message);
       });
 
