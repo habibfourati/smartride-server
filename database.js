@@ -237,7 +237,7 @@ function checkDeviceLock(userId, deviceId) {
   // Vérifier si ce device_id est déjà utilisé par un autre compte
   const otherUser = db.prepare('SELECT id FROM users WHERE device_id = ? AND id != ?').get(deviceId, userId);
   if (otherUser) {
-    return { allowed: false, reason: 'Ce téléphone est déjà associé à un autre compte SmartRide AI. Si c\'est une erreur, contactez-nous à contact@smartride-ai.com et nous réglerons ça rapidement.' };
+    return { allowed: false, reason: 'Ce téléphone est déjà associé à un autre compte SmartRide AI. Si c\'est une erreur, contactez-nous à support@smartride-ai.com et nous réglerons ça rapidement.' };
   }
   // Premier appareil ou changement → enregistrer
   if (!user.device_id) {
@@ -245,7 +245,7 @@ function checkDeviceLock(userId, deviceId) {
     return { allowed: true, reason: 'Appareil enregistré' };
   }
   // Appareil différent → BLOQUÉ
-  return { allowed: false, reason: 'Ce compte est déjà associé à un autre téléphone. Si vous avez changé d\'appareil ou si c\'est une erreur, contactez-nous à contact@smartride-ai.com et nous réglerons ça rapidement.' };
+  return { allowed: false, reason: 'Ce compte est déjà associé à un autre téléphone. Si vous avez changé d\'appareil ou si c\'est une erreur, contactez-nous à support@smartride-ai.com et nous réglerons ça rapidement.' };
 }
 
 // ═══════════════════════════════════════
