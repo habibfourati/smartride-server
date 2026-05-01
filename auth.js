@@ -204,8 +204,8 @@ function setupAuthRoutes(app, db) {
         access
       });
     } catch (e) {
-      console.error('[LOGIN]', e.message);
-      res.status(500).json({ error: 'Erreur serveur' });
+      console.error('[LOGIN ERROR]', e.message, e.stack);
+      res.status(500).json({ error: 'Erreur serveur: ' + e.message });
     }
   });
 
