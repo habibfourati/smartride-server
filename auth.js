@@ -274,6 +274,11 @@ function setupAuthRoutes(app, db) {
       access,
       free_access: db.getSetting('free_access') === 'true',
       analysis_month_limit: parseInt(db.getSetting('analysis_month_limit') || '6000'),
+      free_analysis_limit_enabled: db.getSetting('free_analysis_limit_enabled') === 'true',
+      free_analysis_limit: parseInt(db.getSetting('free_analysis_limit') || '10'),
+      free_analyses_used: db.getEffectivePlan(user) === 'free' ? db.getFreeUserAnalysisCount(user.id) : 0,
+      admin_message_enabled: db.getSetting('admin_message_enabled') === 'true',
+      admin_message_text: db.getSetting('admin_message_text') || '',
       ui_config: uiConfig
     });
   });

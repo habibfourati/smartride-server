@@ -141,6 +141,10 @@ initSetting.run('latest_app_version', '1.0');
 initSetting.run('admin_password', 'smartride2024');
 initSetting.run('analysis_month_limit', '6000');
 initSetting.run('free_access', 'true');
+initSetting.run('free_analysis_limit_enabled', 'false');
+initSetting.run('free_analysis_limit', '10');
+initSetting.run('admin_message_enabled', 'false');
+initSetting.run('admin_message_text', '');
 initSetting.run('app_active', 'true');
 initSetting.run('app_redirect_url', 'https://smartride-ai.com');
 initSetting.run('app_kill_message', 'App désactivée. Téléchargez la nouvelle version.');
@@ -495,6 +499,10 @@ function getMonthlyAnalysisCount() {
   return db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE calculated_at >= date('now', 'start of month')").get().total;
 }
 
+function getFreeUserAnalysisCount(userId) {
+  return db.prepare("SELECT COUNT(*) as total FROM ride_calculations WHERE user_id = ? AND calculated_at >= date('now', 'start of month')").get(userId).total;
+}
+
 // ═══════════════════════════════════════
 // STATISTIQUES ADMIN
 // ═══════════════════════════════════════
@@ -680,7 +688,7 @@ module.exports = {
   saveRideCalculation, getUserRideStats, getUserRides, getAllRides,
   getSetting, setSetting, isMaintenanceMode,
   setHeartbeat, setHeartbeatByDevice, setOffline, setOfflineByDevice, getOnlineCount,
-  getMonthlyAnalysisCount, getGlobalStats,
+  getMonthlyAnalysisCount, getFreeUserAnalysisCount, getGlobalStats,
   trackEvent, incrementDailyUsage, getUserDailyUsage, getAnalyticsSummary, getUserAnalytics,
   getKillSwitchStatus, getApiMapboxStats
 };

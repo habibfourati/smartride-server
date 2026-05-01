@@ -212,6 +212,24 @@
           </tbody>
         </table>
       </div>
+
+      <div class="flag-row" style="margin-top:24px">
+        <div class="flag-info">
+          <h3>Limite d'analyses (comptes Free)</h3>
+          <p>Activez pour limiter le nombre d'analyses par mois pour les comptes gratuits.<br>Les comptes Premium ne sont pas affectés.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="flagFreeAnalysisLimitEnabled" onchange="saveFreeAnalysisLimit()">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+        <label style="color:#90a4ae;font-size:14px">Nombre d'analyses max / mois :</label>
+        <input type="number" id="inputFreeAnalysisLimit" min="1" max="9999" value="10"
+          style="width:90px;padding:8px 12px;background:#1a2634;border:1px solid #263238;border-radius:8px;color:#fff;font-size:14px"
+          onchange="saveFreeAnalysisLimit()">
+        <span style="color:#546e7a;font-size:13px">analyses/mois par compte Free</span>
+      </div>
     </div>
 
     <!-- TAB: COURSES -->
@@ -238,6 +256,22 @@
       <div class="card" style="margin-bottom:20px">
         <h3 style="color:#fff;margin-bottom:16px">Sections Réglages</h3>
         <div id="uiConfigSettings" style="display:grid;gap:12px"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <h3 style="color:#fff;margin:0">📢 Message dans les Réglages</h3>
+          <label class="toggle">
+            <input type="checkbox" id="adminMessageEnabled" onchange="saveAdminMessage()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p style="color:#546e7a;font-size:13px;margin-bottom:12px">Ce texte s'affiche dans l'onglet Réglages de l'app. Activez le toggle pour le rendre visible.</p>
+        <textarea id="adminMessageText"
+          placeholder="Écrivez votre message ici..."
+          rows="5"
+          style="width:100%;padding:12px;background:#0d1b2a;border:1px solid #263238;border-radius:8px;color:#fff;font-size:14px;resize:vertical;box-sizing:border-box"
+          oninput="saveAdminMessage()"></textarea>
       </div>
 
       <div class="card" style="margin-bottom:20px">
@@ -432,7 +466,7 @@ function showTab(name) {
   if (name === 'messages') { loadMessages(); loadBroadcasts(); }
   if (name === 'access') loadFlags();
   if (name === 'rides') loadRides();
-  if (name === 'uiconfig') loadUiConfig();
+  if (name === 'uiconfig') { loadUiConfig(); loadAdminMessage(); }
   if (name === 'analytics') loadAnalytics();
   if (name === 'killswitch') loadKillSwitch();
   if (name === 'settings') loadSettings();
@@ -688,6 +722,8 @@ async function loadFlags() {
   const res = await api('/admin/api/flags');
   const d = await res.json();
   document.getElementById('flagFreeAccess').checked = d.free_access;
+  document.getElementById('flagFreeAnalysisLimitEnabled').checked = d.free_analysis_limit_enabled || false;
+  document.getElementById('inputFreeAnalysisLimit').value = d.free_analysis_limit || 10;
 }
 
 async function saveFlags() {
@@ -695,6 +731,38 @@ async function saveFlags() {
     method: 'POST',
     body: JSON.stringify({
       free_access: document.getElementById('flagFreeAccess').checked
+    })
+  });
+  loadAll();
+}
+
+async function loadAdminMessage() {
+  const res = await api('/admin/api/admin-message');
+  const d = await res.json();
+  document.getElementById('adminMessageEnabled').checked = d.enabled || false;
+  document.getElementById('adminMessageText').value = d.text || '';
+}
+
+let adminMessageTimer = null;
+async function saveAdminMessage() {
+  clearTimeout(adminMessageTimer);
+  adminMessageTimer = setTimeout(async () => {
+    await api('/admin/api/admin-message', {
+      method: 'POST',
+      body: JSON.stringify({
+        enabled: document.getElementById('adminMessageEnabled').checked,
+        text: document.getElementById('adminMessageText').value
+      })
+    });
+  }, 600);
+}
+
+async function saveFreeAnalysisLimit() {
+  await api('/admin/api/free-analysis-limit', {
+    method: 'POST',
+    body: JSON.stringify({
+      enabled: document.getElementById('flagFreeAnalysisLimitEnabled').checked,
+      limit: parseInt(document.getElementById('inputFreeAnalysisLimit').value) || 10
     })
   });
   loadAll();
@@ -774,7 +842,7 @@ const uiConfigLabels = {
   setting_notification: { label: 'Notification', desc: 'Durée d\'affichage overlay' },
   setting_server_url: { label: 'URL Serveur', desc: 'Adresse du serveur API' },
   setting_account: { label: 'Compte', desc: 'Infos compte, premium, déconnexion' },
-  show_subscription_button: { label: 'Bouton "Gérer mon abonnement"', desc: 'Afficher le bouton de gestion d\'abonnement Stripe pour les utilisateurs Premium' }
+  show_subscription_button: { label: 'Bouton Premium (Passer / Gérer)', desc: 'Afficher le bouton "Passer Premium" + texte statut (gratuit) et le bouton "Gérer mon abonnement" (premium)' }
 };
 
 let currentUiConfig = {};

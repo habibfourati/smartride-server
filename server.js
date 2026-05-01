@@ -85,6 +85,18 @@ app.post('/api/calculate', checkMaintenance, (req, res) => {
     return res.status(403).json({ error: 'Abonnement requis', showPaywall: true });
   }
 
+  // Vérifier limite d'analyses pour les comptes free
+  if (!db.isUserPremium(user)) {
+    const limitEnabled = db.getSetting('free_analysis_limit_enabled') === 'true';
+    if (limitEnabled) {
+      const limit = parseInt(db.getSetting('free_analysis_limit') || '10');
+      const used = db.getFreeUserAnalysisCount(user.id);
+      if (used >= limit) {
+        return res.status(429).json({ error: `Limite de ${limit} analyses/mois atteinte. Passez Premium pour continuer.`, showPaywall: true, limitReached: true, limit, used });
+      }
+    }
+  }
+
   // Vérifier limite globale mensuelle
   const monthlyCount = db.getMonthlyAnalysisCount();
   const monthlyLimit = parseInt(db.getSetting('analysis_month_limit') || '6000');
@@ -352,13 +364,35 @@ app.post('/admin/api/users/:id/reset-device', adminAuth, (req, res) => {
 
 // ── FLAG FREE_ACCESS ──
 app.get('/admin/api/flags', adminAuth, (req, res) => {
-  res.json({ free_access: db.getSetting('free_access') === 'true' });
+  res.json({
+    free_access: db.getSetting('free_access') === 'true',
+    free_analysis_limit_enabled: db.getSetting('free_analysis_limit_enabled') === 'true',
+    free_analysis_limit: parseInt(db.getSetting('free_analysis_limit') || '10')
+  });
 });
 
 app.post('/admin/api/flags', adminAuth, (req, res) => {
   const { free_access } = req.body;
   if (free_access !== undefined) db.setSetting('free_access', free_access ? 'true' : 'false');
   res.json({ status: 'ok', free_access: db.getSetting('free_access') === 'true' });
+});
+
+app.post('/admin/api/free-analysis-limit', adminAuth, (req, res) => {
+  const { enabled, limit } = req.body;
+  if (enabled !== undefined) db.setSetting('free_analysis_limit_enabled', enabled ? 'true' : 'false');
+  if (limit !== undefined && limit > 0) db.setSetting('free_analysis_limit', String(limit));
+  res.json({ status: 'ok', enabled: db.getSetting('free_analysis_limit_enabled') === 'true', limit: parseInt(db.getSetting('free_analysis_limit') || '10') });
+});
+
+app.post('/admin/api/admin-message', adminAuth, (req, res) => {
+  const { enabled, text } = req.body;
+  if (enabled !== undefined) db.setSetting('admin_message_enabled', enabled ? 'true' : 'false');
+  if (text !== undefined) db.setSetting('admin_message_text', text);
+  res.json({ status: 'ok' });
+});
+
+app.get('/admin/api/admin-message', adminAuth, (req, res) => {
+  res.json({ enabled: db.getSetting('admin_message_enabled') === 'true', text: db.getSetting('admin_message_text') || '' });
 });
 
 // ── MESSAGES / CONTACT ──
