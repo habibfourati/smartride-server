@@ -6,6 +6,8 @@ const db = require('./database');
 const { setupAuthRoutes, requireAuth, verifyToken } = require('./auth');
 const { setupPaymentRoutes } = require('./payments');
 
+const TRAINING_SECRET = 'smartride-training-2026';
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -598,6 +600,70 @@ app.get('/admin/api/analytics', adminAuth, (req, res) => {
 
 app.get('/admin/api/users/:id/analytics', adminAuth, (req, res) => {
   res.json(db.getUserAnalytics(req.params.id));
+});
+
+// ── TRAINING DATA ──
+// Endpoint appelé par l'APK après chaque réponse DeepSeek
+app.post('/api/training-log', (req, res) => {
+  const secret = req.headers['x-training-secret'];
+  if (secret !== TRAINING_SECRET) return res.status(401).json({ error: 'Non autorisé' });
+
+  const { ocr, response } = req.body;
+  if (!ocr || !response) return res.status(400).json({ error: 'ocr et response requis' });
+
+  try {
+    db.saveTrainingLog(ocr, response);
+    res.json({ status: 'ok' });
+  } catch (e) {
+    console.error('[Training] Erreur sauvegarde:', e.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Admin — stats sur les données d'entraînement
+app.get('/admin/api/training/stats', adminAuth, (req, res) => {
+  res.json(db.getTrainingStats());
+});
+
+// Admin — lister les logs (avec filtres optionnels)
+app.get('/admin/api/training/logs', adminAuth, (req, res) => {
+  const { platform, validated, limit = 50, offset = 0 } = req.query;
+  const logs = db.getTrainingLogs({
+    platform: platform || undefined,
+    validated: validated !== undefined ? validated === 'true' : undefined,
+    limit: parseInt(limit),
+    offset: parseInt(offset)
+  });
+  res.json(logs);
+});
+
+// Admin — exporter en JSONL pour entraînement
+app.get('/admin/api/training/export', adminAuth, (req, res) => {
+  const logs = db.getTrainingLogs({ validated: true });
+  const jsonl = logs.map(l => JSON.stringify({
+    id: l.id,
+    ocr: l.ocr_prompt,
+    response: l.deepseek_response,
+    platform: l.platform,
+    created_at: l.created_at
+  })).join('\n');
+
+  res.setHeader('Content-Type', 'application/x-ndjson');
+  res.setHeader('Content-Disposition', 'attachment; filename="training_data.jsonl"');
+  res.send(jsonl);
+});
+
+// Admin — valider / invalider un exemple
+app.post('/admin/api/training/logs/:id/validate', adminAuth, (req, res) => {
+  const { validated } = req.body;
+  db.setTrainingLogValidated(req.params.id, validated !== false);
+  res.json({ status: 'ok' });
+});
+
+// Admin — supprimer un exemple
+app.delete('/admin/api/training/logs/:id', adminAuth, (req, res) => {
+  db.deleteTrainingLog(req.params.id);
+  res.json({ status: 'ok' });
 });
 
 // ── KILL SWITCH ADMIN ──

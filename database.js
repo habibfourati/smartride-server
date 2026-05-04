@@ -111,6 +111,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_analytics_user ON analytics_events(user_id);
   CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics_events(event_type);
   CREATE INDEX IF NOT EXISTS idx_daily_user_date ON daily_usage(user_id, date);
+
+  CREATE TABLE IF NOT EXISTS training_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ocr_prompt TEXT NOT NULL,
+    deepseek_response TEXT NOT NULL,
+    platform TEXT DEFAULT 'unknown',
+    validated INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_training_platform ON training_logs(platform);
+  CREATE INDEX IF NOT EXISTS idx_training_validated ON training_logs(validated);
+  CREATE INDEX IF NOT EXISTS idx_training_created ON training_logs(created_at);
 `);
 
 // Migrations pour les anciennes bases
@@ -680,6 +693,54 @@ function getKillSwitchStatus() {
   };
 }
 
+// ═══════════════════════════════════════
+// TRAINING LOGS (OCR + DeepSeek pairs)
+// ═══════════════════════════════════════
+
+function saveTrainingLog(ocrPrompt, deepseekResponse) {
+  // Detect platform from prompt or response
+  let platform = 'unknown';
+  const text = (ocrPrompt + deepseekResponse).toLowerCase();
+  if (ocrPrompt.includes('Bolt') || ocrPrompt.includes('Espèces') || ocrPrompt.includes('Hors rayon')) {
+    platform = 'bolt';
+  } else if (ocrPrompt.includes('Uber') || ocrPrompt.includes('UberX')) {
+    platform = 'uber';
+  }
+
+  return db.prepare(
+    'INSERT INTO training_logs (ocr_prompt, deepseek_response, platform) VALUES (?, ?, ?)'
+  ).run(ocrPrompt, deepseekResponse, platform);
+}
+
+function getTrainingLogs({ platform, validated, limit, offset } = {}) {
+  let query = 'SELECT * FROM training_logs WHERE 1=1';
+  const params = [];
+  if (platform) { query += ' AND platform = ?'; params.push(platform); }
+  if (validated !== undefined) { query += ' AND validated = ?'; params.push(validated ? 1 : 0); }
+  query += ' ORDER BY created_at DESC';
+  if (limit) { query += ' LIMIT ?'; params.push(limit); }
+  if (offset) { query += ' OFFSET ?'; params.push(offset); }
+  return db.prepare(query).all(...params);
+}
+
+function getTrainingStats() {
+  const total = db.prepare('SELECT COUNT(*) as n FROM training_logs').get().n;
+  const validated = db.prepare('SELECT COUNT(*) as n FROM training_logs WHERE validated=1').get().n;
+  const byPlatform = db.prepare(
+    'SELECT platform, COUNT(*) as n FROM training_logs GROUP BY platform'
+  ).all();
+  const last = db.prepare('SELECT created_at FROM training_logs ORDER BY created_at DESC LIMIT 1').get();
+  return { total, validated, byPlatform, last_at: last ? last.created_at : null };
+}
+
+function setTrainingLogValidated(id, validated) {
+  db.prepare('UPDATE training_logs SET validated = ? WHERE id = ?').run(validated ? 1 : 0, id);
+}
+
+function deleteTrainingLog(id) {
+  db.prepare('DELETE FROM training_logs WHERE id = ?').run(id);
+}
+
 module.exports = {
   getUserById, getUserByEmail, getUserByDeviceId, getAllUsers,
   createAccount, verifyEmailToken, createGoogleAccount, linkGoogleId,
@@ -695,5 +756,6 @@ module.exports = {
   setHeartbeat, setHeartbeatByDevice, setOffline, setOfflineByDevice, getOnlineCount,
   getMonthlyAnalysisCount, getFreeUserAnalysisCount, getGlobalStats,
   trackEvent, incrementDailyUsage, getUserDailyUsage, getAnalyticsSummary, getUserAnalytics,
-  getKillSwitchStatus, getApiMapboxStats
+  getKillSwitchStatus, getApiMapboxStats,
+  saveTrainingLog, getTrainingLogs, getTrainingStats, setTrainingLogValidated, deleteTrainingLog
 };
