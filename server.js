@@ -6,7 +6,7 @@ const db = require('./database');
 const { setupAuthRoutes, requireAuth, verifyToken } = require('./auth');
 const { setupPaymentRoutes } = require('./payments');
 
-const TRAINING_SECRET = 'smartride-training-2026';
+const TRAINING_SECRET = 'smartride-training-2026'; // v2
 
 const app = express();
 const PORT = process.env.PORT || 3000;
