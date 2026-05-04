@@ -599,32 +599,45 @@ app.get('/api/ride-map', (req, res) => {
   const w = parseInt(req.query.w) || 600;
   const h = parseInt(req.query.h) || 220;
 
-  // Step 1 : itinéraire Mapbox Directions
-  const routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/` +
+  // Step 1 : itinéraire Mapbox Directions (polyline standard, pas polyline6)
+  const routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/` +
     `${olng},${olat};${dlng},${dlat}` +
-    `?access_token=${process.env.MAPBOX_TOKEN}&geometries=polyline6&overview=full`;
+    `?access_token=${process.env.MAPBOX_TOKEN}&geometries=polyline&overview=simplified`;
 
   https.get(routeUrl, (rr) => {
     let buf = '';
     rr.on('data', c => buf += c);
     rr.on('end', () => {
-      let overlays = [];
+      // Build overlays: route path + markers
+      const overlays = [];
       try {
         const json = JSON.parse(buf);
         if (json.routes && json.routes.length > 0) {
           const enc = json.routes[0].geometry;
-          overlays.push(`path-5+1A73E8-0.8(${encodeURIComponent(enc)})`);
+          // Blue route line
+          overlays.push(`path-4+1A73E8-1(${encodeURIComponent(enc)})`);
         }
-      } catch (e) {}
-      // markers
+      } catch (e) { console.error('Directions parse error:', e.message); }
+
+      // Green pickup marker, red dropoff marker
       overlays.push(`pin-s-b+2E7D32(${olng},${olat})`);
       overlays.push(`pin-s-c+C62828(${dlng},${dlat})`);
 
+      // Use /auto/ with small padding to avoid "out of range"
       const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/` +
-        `${overlays.join(',')}/auto/${w}x${h}` +
-        `?access_token=${process.env.MAPBOX_TOKEN}&padding=40,20,40,20`;
+        `${overlays.join(',')}/auto/${w}x${h}@2x` +
+        `?access_token=${process.env.MAPBOX_TOKEN}&padding=30`;
 
       https.get(mapUrl, (mr) => {
+        if (mr.statusCode !== 200) {
+          let errBuf = '';
+          mr.on('data', c => errBuf += c);
+          mr.on('end', () => {
+            console.error('Mapbox static error', mr.statusCode, errBuf);
+            res.status(502).json({ error: 'Mapbox: ' + errBuf });
+          });
+          return;
+        }
         res.setHeader('Content-Type', mr.headers['content-type'] || 'image/png');
         res.setHeader('Cache-Control', 'public, max-age=3600');
         mr.pipe(res);
