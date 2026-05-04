@@ -125,6 +125,7 @@
     <div class="nav-btn" onclick="showTab('apimapbox')">API Mapbox</div>
     <div class="nav-btn" onclick="showTab('killswitch')">Kill Switch</div>
     <div class="nav-btn" onclick="showTab('settings')">Paramètres</div>
+    <div class="nav-btn" onclick="showTab('training')" id="trainingNavBtn">Training IA 🧠</div>
   </div>
 
   <div class="content">
@@ -393,6 +394,53 @@
     </div>
 
     <!-- TAB: PARAMÈTRES -->
+    <!-- TAB: TRAINING IA -->
+    <div class="tab-content" id="tab-training">
+      <h2 class="section-title">Training IA — Données collectées</h2>
+
+      <div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap">
+        <div class="stat-card green" style="flex:1;min-width:140px">
+          <div class="stat-value" id="trainTotal">—</div>
+          <div class="stat-label">Total collectés</div>
+        </div>
+        <div class="stat-card green" style="flex:1;min-width:140px">
+          <div class="stat-value" id="trainValidated">—</div>
+          <div class="stat-label">Validés</div>
+        </div>
+        <div class="stat-card" style="flex:1;min-width:140px">
+          <div class="stat-value" id="trainBolt">—</div>
+          <div class="stat-label">Bolt</div>
+        </div>
+        <div class="stat-card" style="flex:1;min-width:140px">
+          <div class="stat-value" id="trainUber">—</div>
+          <div class="stat-label">Uber</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <select id="trainFilter" onchange="loadTraining()" style="background:#263238;color:#cfd8dc;border:1px solid #37474f;padding:8px;border-radius:6px">
+          <option value="">Toutes plateformes</option>
+          <option value="bolt">Bolt</option>
+          <option value="uber">Uber</option>
+          <option value="unknown">Inconnu</option>
+        </select>
+        <button class="btn btn-green" onclick="exportTraining()">⬇ Exporter JSONL</button>
+        <button class="btn" onclick="loadTraining()" style="background:#263238">🔄 Rafraîchir</button>
+      </div>
+
+      <table>
+        <thead><tr>
+          <th>ID</th>
+          <th>Date</th>
+          <th>Plateforme</th>
+          <th>OCR (extrait)</th>
+          <th>Réponse DeepSeek</th>
+          <th>Actions</th>
+        </tr></thead>
+        <tbody id="trainingList"></tbody>
+      </table>
+    </div>
+
     <div class="tab-content" id="tab-settings">
       <h2 class="section-title">Paramètres</h2>
 
@@ -470,6 +518,7 @@ function showTab(name) {
   if (name === 'analytics') loadAnalytics();
   if (name === 'killswitch') loadKillSwitch();
   if (name === 'settings') loadSettings();
+  if (name === 'training') loadTraining();
 }
 
 // ── LOAD ALL ──
@@ -1020,6 +1069,84 @@ async function saveKillSwitch() {
 
   document.getElementById('killStatus').textContent = isActive ? 'OUI' : 'NON';
   document.getElementById('killStatus').style.color = isActive ? '#4CAF50' : '#ef5350';
+}
+
+// ── TRAINING IA ──
+async function loadTraining() {
+  // Stats
+  const sRes = await api('/admin/api/training/stats');
+  const s = await sRes.json();
+  document.getElementById('trainTotal').textContent = s.total;
+  document.getElementById('trainValidated').textContent = s.validated;
+  const bolt = s.byPlatform.find(p => p.platform === 'bolt');
+  const uber = s.byPlatform.find(p => p.platform === 'uber');
+  document.getElementById('trainBolt').textContent = bolt ? bolt.n : 0;
+  document.getElementById('trainUber').textContent = uber ? uber.n : 0;
+
+  // Badge dans nav
+  const btn = document.getElementById('trainingNavBtn');
+  if (btn && s.total > 0) btn.textContent = `Training IA 🧠 (${s.total})`;
+
+  // Logs
+  const platform = document.getElementById('trainFilter').value;
+  const url = '/admin/api/training/logs?limit=50' + (platform ? '&platform=' + platform : '');
+  const lRes = await api(url);
+  const logs = await lRes.json();
+  const tbody = document.getElementById('trainingList');
+
+  tbody.innerHTML = logs.map(l => {
+    // Extraire l'OCR du prompt (après "analyser:\n")
+    let ocrPreview = l.ocr_prompt || '';
+    const marker = 'analyser:\n';
+    const idx = ocrPreview.indexOf(marker);
+    if (idx !== -1) {
+      const end = ocrPreview.indexOf('\n\nInstructions', idx);
+      ocrPreview = end !== -1 ? ocrPreview.substring(idx + marker.length, end) : ocrPreview.substring(idx + marker.length);
+    }
+    ocrPreview = ocrPreview.trim().substring(0, 120).replace(/</g,'&lt;').replace(/\n/g,'↵ ');
+
+    let respPreview = (l.deepseek_response || '').substring(0, 100).replace(/</g,'&lt;');
+
+    const platColor = l.platform === 'bolt' ? '#69f0ae' : l.platform === 'uber' ? '#4fc3f7' : '#90a4ae';
+    const validIcon = l.validated ? '✅' : '❌';
+    const date = new Date(l.created_at + 'Z').toLocaleString('fr-FR');
+
+    return `<tr>
+      <td>${l.id}</td>
+      <td style="font-size:11px;white-space:nowrap">${date}</td>
+      <td><span style="color:${platColor};font-weight:bold">${l.platform}</span></td>
+      <td style="font-size:11px;max-width:200px;word-break:break-word">${ocrPreview}</td>
+      <td style="font-size:11px;max-width:200px;word-break:break-word">${respPreview}</td>
+      <td style="white-space:nowrap">
+        <span style="cursor:pointer;font-size:16px" onclick="toggleValidate(${l.id},${l.validated ? 0 : 1})" title="${l.validated ? 'Invalider' : 'Valider'}">${validIcon}</span>
+        <span style="cursor:pointer;color:#ef5350;margin-left:8px" onclick="deleteTrainingLog(${l.id})" title="Supprimer">🗑</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function toggleValidate(id, newVal) {
+  await api('/admin/api/training/logs/' + id + '/validate', {
+    method: 'POST', body: JSON.stringify({ validated: !!newVal })
+  });
+  loadTraining();
+}
+
+async function deleteTrainingLog(id) {
+  if (!confirm('Supprimer cet exemple ?')) return;
+  await api('/admin/api/training/logs/' + id, { method: 'DELETE' });
+  loadTraining();
+}
+
+async function exportTraining() {
+  const res = await api('/admin/api/training/export');
+  if (!res.ok) { alert('Erreur export'); return; }
+  const text = await res.text();
+  const blob = new Blob([text], { type: 'application/x-ndjson' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'training_data.jsonl'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 async function changeAdminPwd() {
