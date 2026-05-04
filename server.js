@@ -588,6 +588,51 @@ app.get('/api/map', (req, res) => {
   });
 });
 
+// ── CARTE STATIQUE SANS AUTH (pour TESTB/SmartRideAI) ──
+// GET /api/ride-map?olat=&olng=&dlat=&dlng=&w=600&h=220
+app.get('/api/ride-map', (req, res) => {
+  const https = require('https');
+  const { olat, olng, dlat, dlng } = req.query;
+  if (!olat || !olng || !dlat || !dlng) {
+    return res.status(400).json({ error: 'olat, olng, dlat, dlng requis' });
+  }
+  const w = parseInt(req.query.w) || 600;
+  const h = parseInt(req.query.h) || 220;
+
+  // Step 1 : itinéraire Mapbox Directions
+  const routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/` +
+    `${olng},${olat};${dlng},${dlat}` +
+    `?access_token=${process.env.MAPBOX_TOKEN}&geometries=polyline6&overview=full`;
+
+  https.get(routeUrl, (rr) => {
+    let buf = '';
+    rr.on('data', c => buf += c);
+    rr.on('end', () => {
+      let overlays = [];
+      try {
+        const json = JSON.parse(buf);
+        if (json.routes && json.routes.length > 0) {
+          const enc = json.routes[0].geometry;
+          overlays.push(`path-5+1A73E8-0.8(${encodeURIComponent(enc)})`);
+        }
+      } catch (e) {}
+      // markers
+      overlays.push(`pin-s-b+2E7D32(${olng},${olat})`);
+      overlays.push(`pin-s-c+C62828(${dlng},${dlat})`);
+
+      const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/` +
+        `${overlays.join(',')}/auto/${w}x${h}` +
+        `?access_token=${process.env.MAPBOX_TOKEN}&padding=40,20,40,20`;
+
+      https.get(mapUrl, (mr) => {
+        res.setHeader('Content-Type', mr.headers['content-type'] || 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        mr.pipe(res);
+      }).on('error', e => res.status(500).json({ error: 'Mapbox map: ' + e.message }));
+    });
+  }).on('error', e => res.status(500).json({ error: 'Mapbox route: ' + e.message }));
+});
+
 // ── COMPTEUR USAGE API MAPBOX ──
 app.get('/admin/api/api-usage', adminAuth, (req, res) => {
   res.json(db.getApiMapboxStats());
