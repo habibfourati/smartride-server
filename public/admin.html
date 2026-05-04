@@ -428,13 +428,18 @@
         <button class="btn" onclick="loadTraining()" style="background:#263238">🔄 Rafraîchir</button>
       </div>
 
+      <p style="color:#90a4ae;font-size:12px;margin-bottom:12px">
+        💾 Données stockées : <b>requête JSON exacte</b> envoyée à DeepSeek + <b>réponse JSON brute exacte</b> reçue.
+        Cliquez sur 👁 pour voir le contenu brut complet.
+      </p>
+
       <table>
         <thead><tr>
           <th>ID</th>
           <th>Date</th>
           <th>Plateforme</th>
-          <th>OCR (extrait)</th>
-          <th>Réponse DeepSeek</th>
+          <th>Prompt (extrait)</th>
+          <th>Contenu réponse (extrait)</th>
           <th>Actions</th>
         </tr></thead>
         <tbody id="trainingList"></tbody>
@@ -1095,8 +1100,16 @@ async function loadTraining() {
   const tbody = document.getElementById('trainingList');
 
   tbody.innerHTML = logs.map(l => {
-    // Extraire l'OCR du prompt (après "analyser:\n")
+    // Le request body est maintenant le JSON BRUT envoyé à DeepSeek
+    // Format: {"model":"deepseek-chat","messages":[{"role":"user","content":"..."}],...}
     let ocrPreview = l.ocr_prompt || '';
+    try {
+      const parsed = JSON.parse(ocrPreview);
+      if (parsed && parsed.messages && parsed.messages[0] && parsed.messages[0].content) {
+        ocrPreview = parsed.messages[0].content;
+      }
+    } catch(_) {}
+    // Extraire la portion OCR du prompt (entre "analyser:" et "Instructions")
     const marker = 'analyser:\n';
     const idx = ocrPreview.indexOf(marker);
     if (idx !== -1) {
@@ -1105,7 +1118,16 @@ async function loadTraining() {
     }
     ocrPreview = ocrPreview.trim().substring(0, 120).replace(/</g,'&lt;').replace(/\n/g,'↵ ');
 
-    let respPreview = (l.deepseek_response || '').substring(0, 100).replace(/</g,'&lt;');
+    // La réponse est maintenant le JSON BRUT reçu de DeepSeek
+    // Format: {"choices":[{"message":{"content":"..."}}],...}
+    let respPreview = l.deepseek_response || '';
+    try {
+      const parsed = JSON.parse(respPreview);
+      if (parsed && parsed.choices && parsed.choices[0] && parsed.choices[0].message && parsed.choices[0].message.content) {
+        respPreview = parsed.choices[0].message.content;
+      }
+    } catch(_) {}
+    respPreview = respPreview.substring(0, 100).replace(/</g,'&lt;').replace(/\n/g,'↵ ');
 
     const platColor = l.platform === 'bolt' ? '#69f0ae' : l.platform === 'uber' ? '#4fc3f7' : '#90a4ae';
     const validIcon = l.validated ? '✅' : '❌';
@@ -1118,11 +1140,44 @@ async function loadTraining() {
       <td style="font-size:11px;max-width:200px;word-break:break-word">${ocrPreview}</td>
       <td style="font-size:11px;max-width:200px;word-break:break-word">${respPreview}</td>
       <td style="white-space:nowrap">
-        <span style="cursor:pointer;font-size:16px" onclick="toggleValidate(${l.id},${l.validated ? 0 : 1})" title="${l.validated ? 'Invalider' : 'Valider'}">${validIcon}</span>
-        <span style="cursor:pointer;color:#ef5350;margin-left:8px" onclick="deleteTrainingLog(${l.id})" title="Supprimer">🗑</span>
+        <span style="cursor:pointer;font-size:16px" onclick="viewTrainingRaw(${l.id})" title="Voir brut">👁</span>
+        <span style="cursor:pointer;font-size:16px;margin-left:6px" onclick="toggleValidate(${l.id},${l.validated ? 0 : 1})" title="${l.validated ? 'Invalider' : 'Valider'}">${validIcon}</span>
+        <span style="cursor:pointer;color:#ef5350;margin-left:6px" onclick="deleteTrainingLog(${l.id})" title="Supprimer">🗑</span>
       </td>
     </tr>`;
   }).join('');
+}
+
+async function viewTrainingRaw(id) {
+  const res = await api('/admin/api/training/logs?limit=1000');
+  const logs = await res.json();
+  const log = logs.find(l => l.id === id);
+  if (!log) { alert('Introuvable'); return; }
+
+  // Pretty-print si c'est du JSON
+  const pretty = (s) => {
+    try { return JSON.stringify(JSON.parse(s), null, 2); }
+    catch(_) { return s; }
+  };
+
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html><head><title>Training #${id}</title>
+    <style>body{font-family:monospace;background:#0d1419;color:#cfd8dc;padding:20px;margin:0}
+    h2{color:#4CAF50;border-bottom:1px solid #263238;padding-bottom:8px}
+    h3{color:#69f0ae;margin-top:24px}
+    pre{background:#1a2634;padding:16px;border-radius:8px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:12px;line-height:1.5}
+    .meta{color:#90a4ae;font-size:13px}</style>
+    </head><body>
+    <h2>Training Log #${log.id}</h2>
+    <div class="meta">Plateforme: <b style="color:#69f0ae">${log.platform}</b> · Date: ${log.created_at} · Validé: ${log.validated ? '✅' : '❌'}</div>
+    <h3>📤 Requête envoyée à DeepSeek (${log.ocr_prompt.length} chars)</h3>
+    <pre>${pretty(log.ocr_prompt).replace(/</g,'&lt;')}</pre>
+    <h3>📥 Réponse brute reçue de DeepSeek (${log.deepseek_response.length} chars)</h3>
+    <pre>${pretty(log.deepseek_response).replace(/</g,'&lt;')}</pre>
+    </body></html>
+  `);
+  w.document.close();
 }
 
 async function toggleValidate(id, newVal) {
