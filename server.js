@@ -589,55 +589,58 @@ app.get('/api/map', (req, res) => {
 });
 
 // ── CARTE STATIQUE SANS AUTH (pour TESTB/SmartRideAI) ──
-// GET /api/ride-map?olat=&olng=&dlat=&dlng=&w=600&h=220
+// GET /api/ride-map?olat=&olng=&dlat=&dlng=&w=600&h=220[&drlat=&drlng=]
 app.get('/api/ride-map', (req, res) => {
   const https = require('https');
-  const { olat, olng, dlat, dlng } = req.query;
+  const { olat, olng, dlat, dlng, drlat, drlng } = req.query;
   if (!olat || !olng || !dlat || !dlng) {
     return res.status(400).json({ error: 'olat, olng, dlat, dlng requis' });
   }
   const w = parseInt(req.query.w) || 600;
   const h = parseInt(req.query.h) || 220;
 
-  // Calcul bounding box avec marge
-  const pad = 0.015;
-  const minLng = (Math.min(parseFloat(olng), parseFloat(dlng)) - pad).toFixed(6);
-  const maxLng = (Math.max(parseFloat(olng), parseFloat(dlng)) + pad).toFixed(6);
-  const minLat = (Math.min(parseFloat(olat), parseFloat(dlat)) - pad).toFixed(6);
-  const maxLat = (Math.max(parseFloat(olat), parseFloat(dlat)) + pad).toFixed(6);
+  const hasDriver = drlat && drlng;
 
-  // Step 1 : itinéraire Mapbox Directions → waypoints simplifiés
+  // Bounding box incluant la position chauffeur si disponible
+  const pad = 0.015;
+  const lats = [parseFloat(olat), parseFloat(dlat)];
+  const lngs = [parseFloat(olng), parseFloat(dlng)];
+  if (hasDriver) { lats.push(parseFloat(drlat)); lngs.push(parseFloat(drlng)); }
+  const minLng = (Math.min(...lngs) - pad).toFixed(6);
+  const maxLng = (Math.max(...lngs) + pad).toFixed(6);
+  const minLat = (Math.min(...lats) - pad).toFixed(6);
+  const maxLat = (Math.max(...lats) + pad).toFixed(6);
+
+  // Waypoints pour Directions : chauffeur → pickup → dropoff (si position connue)
+  const waypoints = hasDriver
+    ? `${drlng},${drlat};${olng},${olat};${dlng},${dlat}`
+    : `${olng},${olat};${dlng},${dlat}`;
+
+  // geometries=polyline → string encodé utilisable directement dans Static Maps path overlay
   const routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/` +
-    `${olng},${olat};${dlng},${dlat}` +
-    `?access_token=${process.env.MAPBOX_TOKEN}&geometries=geojson&overview=simplified&steps=false`;
+    `${waypoints}?access_token=${process.env.MAPBOX_TOKEN}&geometries=polyline&overview=full&steps=false`;
 
   https.get(routeUrl, (rr) => {
     let buf = '';
     rr.on('data', c => buf += c);
     rr.on('end', () => {
-      // Build overlays: markers only (path drawn via bbox view)
       const overlays = [];
 
-      // Essai d'ajouter le tracé comme path avec coordonnées extraites
+      // Tracé de route (polyline encodée precision-5, acceptée directement par Mapbox Static)
       try {
         const json = JSON.parse(buf);
         if (json.routes && json.routes.length > 0) {
-          const coords = json.routes[0].geometry.coordinates;
-          // Prendre max 10 points intermédiaires pour limiter la longueur URL
-          const step = Math.max(1, Math.floor(coords.length / 10));
-          const pts = [];
-          for (let i = 0; i < coords.length; i += step) pts.push(coords[i]);
-          if (pts[pts.length - 1] !== coords[coords.length - 1]) pts.push(coords[coords.length - 1]);
-          const pathStr = pts.map(c => `${c[0]},${c[1]}`).join(',');
-          overlays.push(`path-5+1A73E8-1(${pathStr})`);
+          const encoded = json.routes[0].geometry; // string polyline5
+          overlays.push(`path-4+1A73E8-0.9(${encodeURIComponent(encoded)})`);
         }
       } catch (e) { console.error('Route parse err:', e.message); }
 
-      // Marqueurs pickup (vert) et dropoff (rouge)
+      // Marqueur chauffeur (bleu, lettre A) si position connue
+      if (hasDriver) overlays.push(`pin-s-a+0066FF(${drlng},${drlat})`);
+      // Marqueur pickup (vert B) et dropoff (rouge C)
       overlays.push(`pin-s-b+2E7D32(${olng},${olat})`);
       overlays.push(`pin-s-c+C62828(${dlng},${dlat})`);
 
-      // Utilise bounding box fixe (évite "out of range" du /auto/)
       const bbox = `[${minLng},${minLat},${maxLng},${maxLat}]`;
       const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/` +
         `${overlays.join(',')}/${bbox}/${w}x${h}` +
@@ -645,19 +648,21 @@ app.get('/api/ride-map', (req, res) => {
 
       https.get(mapUrl, (mr) => {
         if (mr.statusCode !== 200) {
-          // Fallback : juste les marqueurs sans le path
+          // Fallback : marqueurs seuls sans tracé
+          const markers = hasDriver
+            ? `pin-s-a+0066FF(${drlng},${drlat}),pin-s-b+2E7D32(${olng},${olat}),pin-s-c+C62828(${dlng},${dlat})`
+            : `pin-s-b+2E7D32(${olng},${olat}),pin-s-c+C62828(${dlng},${dlat})`;
           const fallbackUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/` +
-            `pin-s-b+2E7D32(${olng},${olat}),pin-s-c+C62828(${dlng},${dlat})` +
-            `/${bbox}/${w}x${h}?access_token=${process.env.MAPBOX_TOKEN}`;
+            `${markers}/${bbox}/${w}x${h}?access_token=${process.env.MAPBOX_TOKEN}`;
           https.get(fallbackUrl, (fr) => {
             res.setHeader('Content-Type', fr.headers['content-type'] || 'image/png');
-            res.setHeader('Cache-Control', 'public, max-age=3600');
+            res.setHeader('Cache-Control', 'no-store');
             fr.pipe(res);
           }).on('error', e => res.status(500).json({ error: e.message }));
           return;
         }
         res.setHeader('Content-Type', mr.headers['content-type'] || 'image/png');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Cache-Control', 'no-store');
         mr.pipe(res);
       }).on('error', e => res.status(500).json({ error: 'Mapbox map: ' + e.message }));
     });
